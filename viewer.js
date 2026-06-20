@@ -47,6 +47,37 @@ let reviewsCache = {};
 let likeInFlight = new Set();
 
 /* ---------------------------------------------------------
+   One-like-per-device tracking
+   (the only piece of this app that uses localStorage — needed
+   because Firebase has no concept of "this visitor already liked
+   this," and there's no login system for anonymous viewers)
+--------------------------------------------------------- */
+const LIKED_KEY = "flux_liked_review_ids";
+
+function getLikedSet() {
+  try {
+    const raw = localStorage.getItem(LIKED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markAsLiked(id) {
+  try {
+    const set = getLikedSet();
+    set.add(id);
+    localStorage.setItem(LIKED_KEY, JSON.stringify([...set]));
+  } catch {
+    /* localStorage unavailable (private browsing etc.) — like still works, just not remembered */
+  }
+}
+
+function hasLiked(id) {
+  return getLikedSet().has(id);
+}
+
+/* ---------------------------------------------------------
    DOM refs
 --------------------------------------------------------- */
 const $ = (id) => document.getElementById(id);
@@ -181,9 +212,10 @@ function getFilteredSortedReviews() {
 function buildCard(r, index) {
   const genreTags = (r.genres || [])
     .slice(0, 3)
-    .map((g) => `<span class="genre-tag">${escapeHtml(g)}</span>`)
+    .map((g) => `<span class="genre-tag clickable" data-genre="${escapeHtml(g)}">${escapeHtml(g)}</span>`)
     .join("");
   const extra = (r.genres || []).length > 3 ? `<span class="genre-tag">+${r.genres.length - 3}</span>` : "";
+  const likedClass = hasLiked(r.id) ? "liked" : "";
 
   return `
     <article class="movie-card" data-id="${r.id}" style="animation-delay:${Math.min(index * 0.04, 0.4)}s">
@@ -199,7 +231,7 @@ function buildCard(r, index) {
           <div class="card-genres">${genreTags}${extra}</div>
           <div class="card-snippet">${escapeHtml(truncate(r.reviewText || "", 100))}</div>
           <div class="card-footer">
-            <button type="button" class="heart-btn" data-id="${r.id}" title="Like this review">
+            <button type="button" class="heart-btn ${likedClass}" data-id="${r.id}" title="Like this review">
               <span class="heart-icon">❤️</span><span class="like-count">${r.likes || 0}</span>
             </button>
             <button type="button" class="share-btn" data-id="${r.id}" title="Share">
@@ -245,6 +277,12 @@ function debounce(fn, delay) {
 --------------------------------------------------------- */
 function toggleLike(id, btnEl) {
   if (!id || likeInFlight.has(id)) return;
+
+  if (hasLiked(id)) {
+    showToast("You've already liked this one!", "info");
+    return;
+  }
+
   likeInFlight.add(id);
 
   const likesRef = ref(db, `reviews/${id}/likes`);
@@ -254,6 +292,7 @@ function toggleLike(id, btnEl) {
       setTimeout(() => btnEl.classList.remove("bounce"), 500);
       const countEl = btnEl.querySelector(".like-count");
       if (countEl && result.snapshot.exists()) countEl.textContent = result.snapshot.val();
+      markAsLiked(id);
       showToast("Thanks for the like!", "success");
     })
     .catch((err) => showToast("Error: " + err.message, "error"))
@@ -282,6 +321,7 @@ function handleShare(r) {
 viewerGrid.addEventListener("click", (e) => {
   const heartBtn = e.target.closest(".heart-btn");
   const shareBtn = e.target.closest(".share-btn");
+  const genreTag = e.target.closest(".genre-tag.clickable");
   const card = e.target.closest(".movie-card");
 
   if (heartBtn) { toggleLike(heartBtn.dataset.id, heartBtn); return; }
@@ -290,8 +330,21 @@ viewerGrid.addEventListener("click", (e) => {
     if (r) handleShare({ id: shareBtn.dataset.id, ...r });
     return;
   }
+  if (genreTag) { e.stopPropagation(); filterByGenre(genreTag.dataset.genre); return; }
   if (card) openDetailModal(card.dataset.id);
 });
+
+/* ---------------------------------------------------------
+   Click a genre anywhere → jump back to the grid filtered to it
+--------------------------------------------------------- */
+function filterByGenre(genre) {
+  closeDetailModal();
+  genreFilter.value = genre;
+  searchInput.value = "";
+  renderGrid();
+  showToast(`Showing ${genre} reviews`, "info");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 
 /* ---------------------------------------------------------
    Detail modal
@@ -300,46 +353,51 @@ function openDetailModal(id) {
   const r = reviewsCache[id] ? { id, ...reviewsCache[id] } : null;
   if (!r) return;
 
-  const genres = (r.genres || []).map((g) => `<span class="genre-tag">${escapeHtml(g)}</span>`).join("");
+  const genres = (r.genres || [])
+    .map((g) => `<span class="genre-tag clickable" data-genre="${escapeHtml(g)}">${escapeHtml(g)}</span>`)
+    .join("");
   const cast = (r.cast || []).map((c) => `<span class="cast-tag">${escapeHtml(c)}</span>`).join("");
+  const likedClass = hasLiked(r.id) ? "liked" : "";
 
   detailModalCard.innerHTML = `
-    <div class="modal-poster">
-      <img src="${escapeHtml(r.poster)}" alt="${escapeHtml(r.movieName)} poster" loading="lazy" decoding="async" onerror="this.style.opacity=0" />
-    </div>
-    <div class="modal-content">
-      <button class="modal-close" id="closeDetailBtn">✕</button>
-      <h3 class="modal-title">${escapeHtml(r.movieName)}</h3>
-      <div class="modal-meta-row">
-        <span>📅 ${r.releaseYear || "—"}</span><span>·</span>
-        <span>📝 Reviewed ${escapeHtml(r.reviewDate || "")}</span>
+    <button class="modal-close" id="closeDetailBtn">✕</button>
+    <div class="modal-scroll-inner">
+      <div class="modal-poster">
+        <img src="${escapeHtml(r.poster)}" alt="${escapeHtml(r.movieName)} poster" loading="lazy" decoding="async" onerror="this.style.opacity=0" />
       </div>
-      <div class="modal-section">
-        <div class="modal-section-label">Rating</div>
-        ${starRatingMarkup(r.rating || 0)}
-      </div>
-      <div class="modal-section">
-        <div class="modal-section-label">Genres</div>
-        <div class="modal-genres">${genres}</div>
-      </div>
-      <div class="modal-section">
-        <div class="modal-section-label">Cast</div>
-        <div class="modal-genres">${cast}</div>
-      </div>
-      ${r.overview ? `
-      <div class="modal-section">
-        <div class="modal-section-label">Synopsis</div>
-        <p class="modal-review-text">${escapeHtml(r.overview)}</p>
-      </div>` : ""}
-      <div class="modal-section">
-        <div class="modal-section-label">Full Review</div>
-        <p class="modal-review-text">${escapeHtml(r.reviewText || "")}</p>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="heart-btn" id="modalHeartBtn" data-id="${r.id}">
-          <span class="heart-icon">❤️</span><span class="like-count">${r.likes || 0}</span> Like
-        </button>
-        <button type="button" class="share-btn" id="modalShareBtn" data-id="${r.id}">🔗 Share this review</button>
+      <div class="modal-content">
+        <h3 class="modal-title">${escapeHtml(r.movieName)}</h3>
+        <div class="modal-meta-row">
+          <span>📅 ${r.releaseYear || "—"}</span><span>·</span>
+          <span>📝 Reviewed ${escapeHtml(r.reviewDate || "")}</span>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-label">Rating</div>
+          ${starRatingMarkup(r.rating || 0)}
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-label">Genres <span style="font-weight:400; color:var(--text-muted);">(tap to browse)</span></div>
+          <div class="modal-genres">${genres}</div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-label">Cast</div>
+          <div class="modal-genres">${cast}</div>
+        </div>
+        ${r.overview ? `
+        <div class="modal-section">
+          <div class="modal-section-label">Synopsis</div>
+          <p class="modal-review-text">${escapeHtml(r.overview)}</p>
+        </div>` : ""}
+        <div class="modal-section">
+          <div class="modal-section-label">Full Review</div>
+          <p class="modal-review-text">${escapeHtml(r.reviewText || "")}</p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="heart-btn ${likedClass}" id="modalHeartBtn" data-id="${r.id}">
+            <span class="heart-icon">❤️</span><span class="like-count">${r.likes || 0}</span> Like
+          </button>
+          <button type="button" class="share-btn" id="modalShareBtn" data-id="${r.id}">🔗 Share this review</button>
+        </div>
       </div>
     </div>
   `;
@@ -351,6 +409,9 @@ function openDetailModal(id) {
   $("closeDetailBtn").addEventListener("click", closeDetailModal);
   $("modalHeartBtn").addEventListener("click", () => toggleLike(r.id, $("modalHeartBtn")));
   $("modalShareBtn").addEventListener("click", () => handleShare(r));
+  detailModalCard.querySelectorAll(".genre-tag.clickable").forEach((tag) => {
+    tag.addEventListener("click", () => filterByGenre(tag.dataset.genre));
+  });
 }
 
 function closeDetailModal() {
