@@ -473,7 +473,7 @@ function getFilteredSortedReviews() {
 function buildAdminCard(r) {
   const genreTags = (r.genres || [])
     .slice(0, 3)
-    .map((g) => `<span class="genre-tag">${escapeHtml(g)}</span>`)
+    .map((g) => `<span class="genre-tag clickable" data-genre="${escapeHtml(g)}">${escapeHtml(g)}</span>`)
     .join("");
   const extra = (r.genres || []).length > 3 ? `<span class="genre-tag">+${r.genres.length - 3}</span>` : "";
 
@@ -538,10 +538,19 @@ function debounce(fn, delay) {
 adminGrid.addEventListener("click", (e) => {
   const editBtn = e.target.closest(".btn-edit");
   const deleteBtn = e.target.closest(".btn-delete");
+  const genreTag = e.target.closest(".genre-tag.clickable");
   const card = e.target.closest(".movie-card");
 
   if (editBtn) { startEdit(editBtn.dataset.id); return; }
   if (deleteBtn) { openConfirmDelete(deleteBtn.dataset.id); return; }
+  if (genreTag) {
+    e.stopPropagation();
+    genreFilter.value = genreTag.dataset.genre;
+    searchInput.value = "";
+    renderList();
+    showToast(`Filtered to ${genreTag.dataset.genre}`, "info");
+    return;
+  }
   if (card) { openDetailModal(card.dataset.id); }
 });
 
@@ -578,41 +587,45 @@ function openDetailModal(id) {
   const r = reviewsCache[id];
   if (!r) return;
 
-  const genres = (r.genres || []).map((g) => `<span class="genre-tag">${escapeHtml(g)}</span>`).join("");
+  const genres = (r.genres || [])
+    .map((g) => `<span class="genre-tag clickable" data-genre="${escapeHtml(g)}">${escapeHtml(g)}</span>`)
+    .join("");
   const cast = (r.cast || []).map((c) => `<span class="cast-tag">${escapeHtml(c)}</span>`).join("");
 
   detailModalCard.innerHTML = `
-    <div class="modal-poster">
-      <img src="${escapeHtml(r.poster)}" alt="${escapeHtml(r.movieName)} poster" onerror="this.style.opacity=0" />
-    </div>
-    <div class="modal-content">
-      <button class="modal-close" id="closeDetailBtn">✕</button>
-      <h3 class="modal-title">${escapeHtml(r.movieName)}</h3>
-      <div class="modal-meta-row">
-        <span>📅 ${r.releaseYear || "—"}</span><span>·</span>
-        <span>📝 Reviewed ${escapeHtml(r.reviewDate || "")}</span><span>·</span>
-        <span>❤️ ${r.likes || 0} likes</span>
+    <button class="modal-close" id="closeDetailBtn">✕</button>
+    <div class="modal-scroll-inner">
+      <div class="modal-poster">
+        <img src="${escapeHtml(r.poster)}" alt="${escapeHtml(r.movieName)} poster" onerror="this.style.opacity=0" />
       </div>
-      <div class="modal-section">
-        <div class="modal-section-label">Rating</div>
-        ${starRatingMarkup(r.rating || 0)}
-      </div>
-      <div class="modal-section">
-        <div class="modal-section-label">Genres</div>
-        <div class="modal-genres">${genres}</div>
-      </div>
-      <div class="modal-section">
-        <div class="modal-section-label">Cast</div>
-        <div class="modal-genres">${cast}</div>
-      </div>
-      ${r.overview ? `
-      <div class="modal-section">
-        <div class="modal-section-label">Synopsis</div>
-        <p class="modal-review-text">${escapeHtml(r.overview)}</p>
-      </div>` : ""}
-      <div class="modal-section">
-        <div class="modal-section-label">Full Review</div>
-        <p class="modal-review-text">${escapeHtml(r.reviewText || "")}</p>
+      <div class="modal-content">
+        <h3 class="modal-title">${escapeHtml(r.movieName)}</h3>
+        <div class="modal-meta-row">
+          <span>📅 ${r.releaseYear || "—"}</span><span>·</span>
+          <span>📝 Reviewed ${escapeHtml(r.reviewDate || "")}</span><span>·</span>
+          <span>❤️ ${r.likes || 0} likes</span>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-label">Rating</div>
+          ${starRatingMarkup(r.rating || 0)}
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-label">Genres <span style="font-weight:400; color:var(--text-muted);">(tap to filter list)</span></div>
+          <div class="modal-genres">${genres}</div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-label">Cast</div>
+          <div class="modal-genres">${cast}</div>
+        </div>
+        ${r.overview ? `
+        <div class="modal-section">
+          <div class="modal-section-label">Synopsis</div>
+          <p class="modal-review-text">${escapeHtml(r.overview)}</p>
+        </div>` : ""}
+        <div class="modal-section">
+          <div class="modal-section-label">Full Review</div>
+          <p class="modal-review-text">${escapeHtml(r.reviewText || "")}</p>
+        </div>
       </div>
     </div>
   `;
@@ -620,6 +633,15 @@ function openDetailModal(id) {
   detailModal.classList.add("active");
   animateStarFills(detailModalCard);
   $("closeDetailBtn").addEventListener("click", closeDetailModal);
+  detailModalCard.querySelectorAll(".genre-tag.clickable").forEach((tag) => {
+    tag.addEventListener("click", () => {
+      closeDetailModal();
+      genreFilter.value = tag.dataset.genre;
+      searchInput.value = "";
+      renderList();
+      showToast(`Filtered to ${tag.dataset.genre}`, "info");
+    });
+  });
 }
 
 function closeDetailModal() {
