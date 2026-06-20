@@ -1,1 +1,77 @@
+name: Validate and Deploy FluxReviews
 
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate JavaScript (admin.js, viewer.js)
+        run: |
+          node --check --input-type=module < admin.js
+          node --check --input-type=module < viewer.js
+          echo "JS syntax OK"
+
+      - name: Validate HTML structure and CSS braces
+        run: |
+          python3 - << 'EOF'
+          import re, sys
+
+          ok = True
+          for f in ["admin.html", "viewer.html", "index.html"]:
+              s = open(f).read()
+              opens = len(re.findall(r"<div\b", s))
+              closes = len(re.findall(r"</div>", s))
+              if opens != closes:
+                  print(f"FAIL: {f} has {opens} <div> but {closes} </div>")
+                  ok = False
+              else:
+                  print(f"OK: {f} div tags balanced ({opens})")
+
+          css = open("main.css").read()
+          if css.count("{") != css.count("}"):
+              print(f"FAIL: main.css braces unbalanced ({css.count('{')} vs {css.count('}')})")
+              ok = False
+          else:
+              print(f"OK: main.css braces balanced ({css.count('{')})")
+
+          sys.exit(0 if ok else 1)
+          EOF
+
+      - name: Check Firebase config placeholders are filled in
+        run: |
+          if grep -q "YOUR_API_KEY" admin.js viewer.js; then
+            echo "FAIL: Firebase config still has placeholder values"
+            exit 1
+          fi
+          echo "OK: Firebase config looks filled in"
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: "."
+          production-deploy: true
+          deploy-message: "Deploy from GitHub Actions: ${{ github.sha }}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 5
