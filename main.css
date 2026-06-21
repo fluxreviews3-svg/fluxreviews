@@ -2287,3 +2287,12 @@ h4 {
     background-position: -200% 0;
   }
 }
+
+/* ---------- Interactive Background Particles ---------- */
+#flux-particles {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
