@@ -9,36 +9,13 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-/* ---------------------------------------------------------
-   🔥 FIREBASE CONFIGURATION
-   Replace the values below with your own Firebase project
-   credentials (Firebase Console → Project Settings → General
-   → Your apps → SDK setup and configuration).
-   IMPORTANT: keep this identical to the config in viewer.js
-   so both pages read/write the same database.
---------------------------------------------------------- */
-const firebaseConfig = {
-  apiKey: "AIzaSyBJHgN6x3LQm3a9Y6OEyLIrlwHYBeHZsXI",
-  authDomain: "fluxreviews.firebaseapp.com",
-  databaseURL: "https://fluxreviews-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "fluxreviews",
-  storageBucket: "fluxreviews.appspot.com",
-  messagingSenderId: "776993219438",
-  appId: "1:776993219438:web:77a7f23d9742469db6577f"
-};
+import { firebaseConfig, TMDB_API_KEY } from "./config.js";
+import { escapeHtml, truncate, starRatingMarkup, animateStarFills } from "./utils.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 const reviewsRef = ref(db, "reviews");
-
-/* ---------------------------------------------------------
-   🎬 TMDB CONFIGURATION
-   Get a free "API Key (v3 auth)" from:
-   https://www.themoviedb.org/settings/api
---------------------------------------------------------- */
-const TMDB_API_KEY = "d7373cd851ba19a21a9adacc706be25a";
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w780"; // HD poster size
 const TMDB_THUMB_BASE = "https://image.tmdb.org/t/p/w92"; // small thumb for result list
@@ -50,11 +27,11 @@ const TMDB_GENRE_MAP = { "Science Fiction": "Sci-Fi" };
    Constants
 --------------------------------------------------------- */
 const GENRES = [
-  "Action","Adventure","Animation","Anime","Biography","Comedy","Crime",
-  "Documentary","Drama","Family","Fantasy","Film-Noir","History","Horror",
-  "Music","Musical","Mystery","Psychological Thriller","Romance","Sci-Fi",
-  "Sport","Superhero","Suspense","Thriller","War","Western","Cyberpunk",
-  "Dark Comedy","Slice of Life","Coming of Age"
+  "Action", "Adventure", "Animation", "Anime", "Biography", "Comedy", "Crime",
+  "Documentary", "Drama", "Family", "Fantasy", "Film-Noir", "History", "Horror",
+  "Music", "Musical", "Mystery", "Psychological Thriller", "Romance", "Sci-Fi",
+  "Sport", "Superhero", "Suspense", "Thriller", "War", "Western", "Cyberpunk",
+  "Dark Comedy", "Slice of Life", "Coming of Age"
 ];
 
 /* ---------------------------------------------------------
@@ -118,15 +95,6 @@ const toastContainer = $("toastContainer");
 /* ---------------------------------------------------------
    Helpers
 --------------------------------------------------------- */
-function escapeHtml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function showToast(message, type = "info") {
   const icons = { success: "✅", error: "⚠️", info: "ℹ️" };
   const toast = document.createElement("div");
@@ -134,28 +102,6 @@ function showToast(message, type = "info") {
   toast.innerHTML = `<span class="toast-icon">${icons[type] || "ℹ️"}</span><span>${escapeHtml(message)}</span>`;
   toastContainer.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
-}
-
-function starRatingMarkup(rating) {
-  const pct = Math.max(0, Math.min(100, (rating / 10) * 100));
-  return `
-    <span class="star-rating" style="--rating-pct:${pct}%">
-      <span class="stars-bg">★★★★★</span>
-      <span class="stars-fg">★★★★★</span>
-    </span>
-    <span class="rating-num">${Number(rating).toFixed(1)}/10</span>
-  `;
-}
-
-function animateStarFills(scope = document) {
-  requestAnimationFrame(() => {
-    scope.querySelectorAll(".star-rating:not(.filled)").forEach((el) => el.classList.add("filled"));
-  });
-}
-
-function truncate(text = "", len = 130) {
-  if (text.length <= len) return text;
-  return text.slice(0, len).trim() + "…";
 }
 
 /* ---------------------------------------------------------
@@ -593,6 +539,7 @@ function openDetailModal(id) {
   const cast = (r.cast || []).map((c) => `<span class="cast-tag">${escapeHtml(c)}</span>`).join("");
 
   detailModalCard.innerHTML = `
+    <div class="modal-bg-blur" style="background-image: url('${escapeHtml(r.poster)}')"></div>
     <button class="modal-close" id="closeDetailBtn">✕</button>
     <div class="modal-scroll-inner">
       <div class="modal-poster">
