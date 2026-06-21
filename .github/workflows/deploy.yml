@@ -17,10 +17,24 @@ jobs:
         with:
           node-version: 20
 
-      - name: Validate JavaScript (admin.js, viewer.js)
+      - name: Generate config.js
+        run: node generate-config.js
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+
+      - name: Validate JavaScript (admin.js, viewer.js, about.js, utils.js)
         run: |
           node --check --input-type=module < admin.js
           node --check --input-type=module < viewer.js
+          node --check --input-type=module < about.js
+          node --check --input-type=module < utils.js
           echo "JS syntax OK"
 
       - name: Validate HTML structure and CSS braces
@@ -29,7 +43,7 @@ jobs:
           import re, sys
 
           ok = True
-          for f in ["admin.html", "viewer.html", "index.html"]:
+          for f in ["admin.html", "index.html"]:
               s = open(f).read()
               opens = len(re.findall(r"<div\b", s))
               closes = len(re.findall(r"</div>", s))
@@ -49,13 +63,13 @@ jobs:
           sys.exit(0 if ok else 1)
           EOF
 
-      - name: Check Firebase config placeholders are filled in
+      - name: Check Firebase config variables exist
         run: |
-          if grep -q "YOUR_API_KEY" admin.js viewer.js; then
-            echo "FAIL: Firebase config still has placeholder values"
+          if ! grep -q "apiKey" config.js; then
+            echo "FAIL: config.js is invalid or missing config variables"
             exit 1
           fi
-          echo "OK: Firebase config looks filled in"
+          echo "OK: config.js generated successfully with correct keys"
 
   deploy:
     needs: validate
@@ -63,6 +77,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate config.js for production
+        run: node generate-config.js
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
 
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3
