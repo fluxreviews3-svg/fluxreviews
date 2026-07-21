@@ -29,12 +29,15 @@ jobs:
           FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
 
-      - name: Validate JavaScript (admin.js, viewer.js, about.js, utils.js)
+      - name: Validate JavaScript (admin.js, viewer.js, about.js, utils.js, tmdb.js, upcoming.js, ott.js)
         run: |
           node --check --input-type=module < admin.js
           node --check --input-type=module < viewer.js
           node --check --input-type=module < about.js
           node --check --input-type=module < utils.js
+          node --check --input-type=module < tmdb.js
+          node --check --input-type=module < upcoming.js
+          node --check --input-type=module < ott.js
           echo "JS syntax OK"
 
       - name: Validate HTML structure and CSS braces
@@ -43,7 +46,7 @@ jobs:
           import re, sys
 
           ok = True
-          for f in ["admin.html", "index.html"]:
+          for f in ["admin.html", "index.html", "about.html", "upcoming.html", "ott.html"]:
               s = open(f).read()
               opens = len(re.findall(r"<div\b", s))
               closes = len(re.findall(r"</div>", s))

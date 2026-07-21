@@ -80,7 +80,14 @@
       </div>
     </header>
 
-    <main class="container admin-layout">
+    <div class="container" style="padding-top:24px;">
+      <div class="admin-tabs">
+        <button type="button" class="admin-tab-btn active" data-tab="reviews">🎬 Reviews</button>
+        <button type="button" class="admin-tab-btn" data-tab="ott">📺 OTT Updates</button>
+      </div>
+    </div>
+
+    <main class="container admin-layout" id="reviewsTabPanel">
 
       <!-- ===================== FORM PANEL ===================== -->
       <section class="glass-panel form-card">
@@ -241,6 +248,107 @@
 
     </main>
 
+    <main class="container admin-layout admin-tab-panel hidden" id="ottTabPanel">
+
+      <!-- ===================== OTT FORM PANEL ===================== -->
+      <section class="glass-panel form-card">
+        <h2 class="panel-title" id="ottFormTitle">📺 Add OTT Update</h2>
+
+        <form id="ottForm" novalidate>
+          <input type="hidden" id="ottId" value="" />
+
+          <div class="form-group">
+            <label class="form-label" for="ottTitle">OTT Title <span class="req">*</span></label>
+            <input class="input" type="text" id="ottTitle" placeholder="e.g. The Rajasaab" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ottPoster">Poster URL <span class="req">*</span></label>
+            <input class="input" type="url" id="ottPoster" placeholder="https://example.com/poster.jpg" required />
+            <div class="poster-preview" id="ottPosterPreview">No image</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ottPlatform">Platform <span class="req">*</span></label>
+            <select class="select" id="ottPlatform" required>
+              <option value="">Select a platform</option>
+              <option value="Netflix">Netflix</option>
+              <option value="Prime Video">Prime Video</option>
+              <option value="JioHotstar">JioHotstar</option>
+              <option value="SonyLiv">SonyLiv</option>
+              <option value="ZEE5">ZEE5</option>
+              <option value="Others">Others</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ottReleaseDate">Release Date <span class="req">*</span></label>
+            <input class="input" type="date" id="ottReleaseDate" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ottDescription">Description <span style="color:var(--text-muted); font-weight:400;">(optional)</span></label>
+            <textarea class="textarea" id="ottDescription" placeholder="e.g. OTT Release Announcement"></textarea>
+          </div>
+
+          <div class="form-group" style="display:flex; gap:10px;">
+            <button type="submit" class="btn btn-primary btn-block" id="ottSubmitBtn">💾 Save Update</button>
+            <button type="button" class="btn btn-ghost" id="ottCancelEditBtn" style="display:none;">Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ===================== OTT LIST PANEL ===================== -->
+      <section class="list-section">
+        <h2 class="panel-title">📺 All OTT Updates <span class="badge-count" id="ottCount">0</span></h2>
+
+        <div class="toolbar">
+          <select class="select" id="ottPlatformFilter">
+            <option value="">All Platforms</option>
+            <option value="Netflix">Netflix</option>
+            <option value="Prime Video">Prime Video</option>
+            <option value="JioHotstar">JioHotstar</option>
+            <option value="SonyLiv">SonyLiv</option>
+            <option value="ZEE5">ZEE5</option>
+            <option value="Others">Others</option>
+          </select>
+          <select class="select" id="ottSortSelect">
+            <option value="date-new">Release Date: Newest</option>
+            <option value="date-old">Release Date: Oldest</option>
+            <option value="name-az">Name: A–Z</option>
+          </select>
+        </div>
+
+        <div class="movie-grid" id="ottGrid">
+          <div class="skeleton-card">
+            <div class="poster-wrap skeleton-pulse"></div>
+            <div class="card-body">
+              <div class="skeleton-title skeleton-pulse"></div>
+              <div class="skeleton-meta skeleton-pulse"></div>
+              <div class="skeleton-snippet skeleton-pulse"></div>
+              <div class="skeleton-footer">
+                <div class="skeleton-btn skeleton-pulse"></div>
+                <div class="skeleton-btn skeleton-pulse"></div>
+              </div>
+            </div>
+          </div>
+          <div class="skeleton-card">
+            <div class="poster-wrap skeleton-pulse"></div>
+            <div class="card-body">
+              <div class="skeleton-title skeleton-pulse"></div>
+              <div class="skeleton-meta skeleton-pulse"></div>
+              <div class="skeleton-snippet skeleton-pulse"></div>
+              <div class="skeleton-footer">
+                <div class="skeleton-btn skeleton-pulse"></div>
+                <div class="skeleton-btn skeleton-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
     <!-- ===================== MODAL: DETAIL/PREVIEW ===================== -->
     <div class="modal-overlay" id="detailModal">
       <div class="glass-panel modal-card" id="detailModalCard"></div>
@@ -250,8 +358,8 @@
     <div class="modal-overlay" id="confirmModal">
       <div class="glass-panel confirm-card">
         <div class="confirm-icon">🗑️</div>
-        <div class="confirm-title">Delete this review?</div>
-        <div class="confirm-text">This action cannot be undone. The review will be permanently removed from the
+        <div class="confirm-title" id="confirmTitle">Delete this review?</div>
+        <div class="confirm-text" id="confirmText">This action cannot be undone. The review will be permanently removed from the
           database.</div>
         <div class="confirm-actions">
           <button class="btn btn-ghost" id="confirmCancelBtn">Cancel</button>

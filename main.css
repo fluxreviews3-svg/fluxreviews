@@ -1362,14 +1362,168 @@ h4 {
 }
 
 /* ---------- Admin layout ---------- */
+:root { --admin-tabs-h: 64px; }
+
 .admin-layout {
   display: grid;
   grid-template-columns: 380px 1fr;
   gap: 28px;
   padding: 32px 0 60px;
   align-items: start;
-  height: calc(100vh - var(--header-h));
+  height: calc(100vh - var(--header-h) - var(--admin-tabs-h));
   overflow: hidden;
+}
+
+.admin-layout.hidden { display: none; }
+
+/* ---------- Admin tab switcher (Reviews / OTT Updates) ---------- */
+.admin-tabs {
+  display: flex;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.admin-tab-btn {
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  transition: var(--transition-fast);
+}
+.admin-tab-btn:hover { color: var(--text-primary); border-color: var(--glass-border-strong); }
+.admin-tab-btn.active {
+  background: var(--accent-gradient);
+  color: #0a0e17;
+  border-color: transparent;
+  box-shadow: 0 4px 16px rgba(181, 55, 242, 0.3);
+}
+
+/* ---------- Platform badges (text + brand color, never logo artwork) ---------- */
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.platform-badge.platform-netflix { background: #e50914; color: #fff; }
+.platform-badge.platform-prime-video { background: #00a8e1; color: #0a1c2e; }
+.platform-badge.platform-jiohotstar {
+  background: linear-gradient(120deg, #1c2dfa, #8b2ff0, #ff3da6);
+  color: #fff;
+}
+.platform-badge.platform-sonyliv {
+  background: linear-gradient(120deg, #1b1135, #5b2a86);
+  color: #ffce54;
+}
+.platform-badge.platform-zee5 { background: #11131f; color: #fff; border: 1px solid #2dd9c4; }
+.platform-badge.platform-others { background: var(--glass-bg); color: var(--text-secondary); border: 1px solid var(--glass-border); }
+
+.ott-card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+
+/* ---------- Discovery cards (Upcoming / OTT) ---------- */
+.discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  padding-bottom: 20px;
+}
+
+.discover-card {
+  flex: 0 0 150px;
+  scroll-snap-align: start;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+.discover-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-strong), var(--shadow-glow-cyan);
+  border-color: var(--glass-border-strong);
+}
+.discover-card.ott-card { cursor: default; }
+
+.discover-poster {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.discover-poster img { width: 100%; height: 100%; object-fit: cover; }
+.discover-poster .platform-badge {
+  position: absolute;
+  bottom: 8px; left: 8px;
+  font-size: 10px;
+  padding: 3px 9px;
+}
+
+.ott-source-tag {
+  position: absolute;
+  top: 8px; left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(10, 14, 23, 0.7);
+  border: 1px solid var(--glass-border);
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.discover-rating-badge {
+  position: absolute;
+  top: 8px; right: 8px;
+  display: flex; align-items: center; gap: 3px;
+  padding: 3px 7px;
+  border-radius: var(--radius-full);
+  background: rgba(10, 14, 23, 0.75);
+  border: 1px solid rgba(255, 206, 84, 0.4);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.discover-info { padding: 10px 11px; }
+.discover-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.discover-meta { font-size: 11px; color: var(--text-muted); }
+.discover-overview {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.discover-skeleton .discover-poster { aspect-ratio: 2 / 3; }
+
+.ott-chip-cloud { max-height: none; overflow-y: visible; margin-bottom: 14px; }
+
+#upcomingSection, #ottSection {
+  scroll-margin-top: calc(var(--header-h) + 20px);
 }
 
 .panel-title {
