@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OTT Releases — FluxReviews</title>
+<meta name="description" content="Where to stream — Netflix, Prime Video, JioHotstar, SonyLiv, ZEE5 and more." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+<link rel="stylesheet" href="main.css" />
+</head>
+<body>
+
+<div class="bg-flux"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href="index.html">
+      <div class="brand-mark">
+        <svg class="brand-mark-icon" viewBox="0 0 100 100" fill="#0a0e17" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="20.87,90.01 15.13,85.99 32.91,66.7"/>
+          <polygon points="12.05,81.43 7.95,78.57 21.47,63.62"/>
+          <polygon points="5.31,70.92 2.69,69.08 12.03,58.53"/>
+          <polygon points="50.0,18.0 57.05,38.29 78.53,38.73 61.41,51.71 67.63,72.27 50.0,60.0 32.37,72.27 38.59,51.71 21.47,38.73 42.95,38.29"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-text">FluxReviews</div>
+        <div class="brand-sub">Real reviews. Real ratings.</div>
+      </div>
+    </a>
+    <div class="header-actions">
+      <a class="nav-link-btn" href="upcoming.html">🎬 Upcoming</a>
+      <a class="nav-link-btn" href="index.html">💬 Browse Reviews</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero container">
+  <h1>📺 OTT Releases</h1>
+  <p>Manual updates from our team, merged live with TMDB's auto-detected streaming availability.</p>
+</section>
+
+<main class="container" style="padding-bottom:60px;">
+  <div class="chip-cloud ott-chip-cloud" id="ottPlatformChips"></div>
+  <div class="discover-grid" id="ottGrid" data-aos="fade-up">
+    <div class="discover-card discover-skeleton">
+      <div class="discover-poster skeleton-pulse"></div>
+      <div class="discover-info">
+        <div class="skeleton-title skeleton-pulse" style="height:10px; width:80%;"></div>
+        <div class="skeleton-meta skeleton-pulse" style="height:8px; width:40%; margin-bottom:0;"></div>
+      </div>
+    </div>
+    <div class="discover-card discover-skeleton">
+      <div class="discover-poster skeleton-pulse"></div>
+      <div class="discover-info">
+        <div class="skeleton-title skeleton-pulse" style="height:10px; width:80%;"></div>
+        <div class="skeleton-meta skeleton-pulse" style="height:8px; width:40%; margin-bottom:0;"></div>
+      </div>
+    </div>
+    <div class="discover-card discover-skeleton">
+      <div class="discover-poster skeleton-pulse"></div>
+      <div class="discover-info">
+        <div class="skeleton-title skeleton-pulse" style="height:10px; width:80%;"></div>
+        <div class="skeleton-meta skeleton-pulse" style="height:8px; width:40%; margin-bottom:0;"></div>
+      </div>
+    </div>
+    <div class="discover-card discover-skeleton">
+      <div class="discover-poster skeleton-pulse"></div>
+      <div class="discover-info">
+        <div class="skeleton-title skeleton-pulse" style="height:10px; width:80%;"></div>
+        <div class="skeleton-meta skeleton-pulse" style="height:8px; width:40%; margin-bottom:0;"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <p class="footer-tagline">FluxReviews · Crafted with Firebase Realtime Database</p>
+</footer>
+
+<script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+<script type="module" src="ott.js"></script>
+<script type="module" src="particles.js"></script>
+</body>
+</html>

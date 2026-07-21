@@ -1,0 +1,111 @@
+name: Validate and Deploy FluxReviews
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate config.js
+        run: node generate-config.js
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+
+      - name: Validate JavaScript (admin.js, viewer.js, about.js, utils.js, tmdb.js, upcoming.js, ott.js)
+        run: |
+          node --check --input-type=module < admin.js
+          node --check --input-type=module < viewer.js
+          node --check --input-type=module < about.js
+          node --check --input-type=module < utils.js
+          node --check --input-type=module < tmdb.js
+          node --check --input-type=module < upcoming.js
+          node --check --input-type=module < ott.js
+          echo "JS syntax OK"
+
+      - name: Validate HTML structure and CSS braces
+        run: |
+          python3 - << 'EOF'
+          import re, sys
+
+          ok = True
+          for f in ["admin.html", "index.html", "about.html", "upcoming.html", "ott.html"]:
+              s = open(f).read()
+              opens = len(re.findall(r"<div\b", s))
+              closes = len(re.findall(r"</div>", s))
+              if opens != closes:
+                  print(f"FAIL: {f} has {opens} <div> but {closes} </div>")
+                  ok = False
+              else:
+                  print(f"OK: {f} div tags balanced ({opens})")
+
+          css = open("main.css").read()
+          if css.count("{") != css.count("}"):
+              print(f"FAIL: main.css braces unbalanced ({css.count('{')} vs {css.count('}')})")
+              ok = False
+          else:
+              print(f"OK: main.css braces balanced ({css.count('{')})")
+
+          sys.exit(0 if ok else 1)
+          EOF
+
+      - name: Check Firebase config variables exist
+        run: |
+          if ! grep -q "apiKey" config.js; then
+            echo "FAIL: config.js is invalid or missing config variables"
+            exit 1
+          fi
+          echo "OK: config.js generated successfully with correct keys"
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate config.js for production
+        run: node generate-config.js
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: "."
+          production-deploy: true
+          deploy-message: "Deploy from GitHub Actions: ${{ github.sha }}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 5
