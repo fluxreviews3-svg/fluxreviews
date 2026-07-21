@@ -3,91 +3,13 @@
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getDatabase, ref, onValue, runTransaction
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-/* ---------------------------------------------------------
-   🔥 FIREBASE CONFIGURATION — keep identical to admin.js / viewer.js
---------------------------------------------------------- */
-const firebaseConfig = {
-  apiKey: "AIzaSyBJHgN6x3LQm3a9Y6OEyLIrlwHYBeHZsXI",
-  authDomain: "fluxreviews.firebaseapp.com",
-  databaseURL: "https://fluxreviews-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "fluxreviews",
-  storageBucket: "fluxreviews.appspot.com",
-  messagingSenderId: "776993219438",
-  appId: "1:776993219438:web:77a7f23d9742469db6577f"
-};
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { firebaseConfig } from "./config.js";
+import { escapeHtml, truncate, hasLiked, toggleLike } from "./utils.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const reviewsRef = ref(db, "reviews");
-
-const LIKED_KEY = "flux_liked_review_ids";
-let likeInFlight = new Set();
-
-/* ---------------------------------------------------------
-   Helpers (shared patterns with viewer.js)
---------------------------------------------------------- */
-function escapeHtml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function truncate(text = "", len = 100) {
-  if (text.length <= len) return text;
-  return text.slice(0, len).trim() + "…";
-}
-
-function starRatingMarkup(rating) {
-  const pct = Math.max(0, Math.min(100, (rating / 10) * 100));
-  return `
-    <span class="star-rating filled" style="--rating-pct:${pct}%">
-      <span class="stars-bg">★★★★★</span>
-      <span class="stars-fg">★★★★★</span>
-    </span>
-    <span class="rating-num">${Number(rating).toFixed(1)}/10</span>
-  `;
-}
-
-function getLikedSet() {
-  try {
-    const raw = localStorage.getItem(LIKED_KEY);
-    return new Set(raw ? JSON.parse(raw) : []);
-  } catch {
-    return new Set();
-  }
-}
-function markAsLiked(id) {
-  try {
-    const set = getLikedSet();
-    set.add(id);
-    localStorage.setItem(LIKED_KEY, JSON.stringify([...set]));
-  } catch { /* private browsing etc. — like still works, just not remembered */ }
-}
-function hasLiked(id) { return getLikedSet().has(id); }
-
-function toggleLike(id, btnEl) {
-  if (!id || likeInFlight.has(id)) return;
-  if (hasLiked(id)) return;
-  likeInFlight.add(id);
-
-  const likesRef = ref(db, `reviews/${id}/likes`);
-  runTransaction(likesRef, (current) => (current || 0) + 1)
-    .then((result) => {
-      btnEl.classList.add("liked", "bounce");
-      setTimeout(() => btnEl.classList.remove("bounce"), 500);
-      const countEl = btnEl.querySelector(".like-count");
-      if (countEl && result.snapshot.exists()) countEl.textContent = result.snapshot.val();
-      markAsLiked(id);
-    })
-    .finally(() => likeInFlight.delete(id));
-}
 
 /* ---------------------------------------------------------
    Reviews preview (latest 3)
@@ -118,7 +40,7 @@ function buildPreviewCard(r) {
             <button type="button" class="heart-btn ${likedClass}" data-id="${r.id}">
               <span class="heart-icon">❤️</span><span class="like-count">${r.likes || 0}</span>
             </button>
-            <a class="share-btn" href="viewer.html#${r.id}">📖 Read More</a>
+            <a class="share-btn" href="index.html#${r.id}">📖 Read More</a>
           </div>
         </div>
       </div>
@@ -143,7 +65,7 @@ function loadPreview() {
 
       previewGrid.innerHTML = arr.map(buildPreviewCard).join("");
       previewGrid.querySelectorAll(".heart-btn").forEach((btn) => {
-        btn.addEventListener("click", () => toggleLike(btn.dataset.id, btn));
+        btn.addEventListener("click", () => toggleLike(btn.dataset.id, btn, db));
       });
     },
     () => {

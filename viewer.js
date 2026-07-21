@@ -3,27 +3,11 @@
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { firebaseConfig } from "./config.js";
 import {
-  getDatabase, ref, onValue, runTransaction
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-/* ---------------------------------------------------------
-   🔥 FIREBASE CONFIGURATION
-   Replace the values below with your own Firebase project
-   credentials (Firebase Console → Project Settings → General
-   → Your apps → SDK setup and configuration).
-   IMPORTANT: keep this identical to the config in admin.js
-   so both pages read/write the same database.
---------------------------------------------------------- */
-const firebaseConfig = {
-  apiKey: "AIzaSyBJHgN6x3LQm3a9Y6OEyLIrlwHYBeHZsXI",
-  authDomain: "fluxreviews.firebaseapp.com",
-  databaseURL: "https://fluxreviews-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "fluxreviews",
-  storageBucket: "fluxreviews.appspot.com",
-  messagingSenderId: "776993219438",
-  appId: "1:776993219438:web:77a7f23d9742469db6577f"
-};
+  escapeHtml, truncate, starRatingMarkup, animateStarFills, hasLiked, toggleLike, handleShare
+} from "./utils.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -46,36 +30,7 @@ const GENRES = [
 let reviewsCache = {};
 let likeInFlight = new Set();
 
-/* ---------------------------------------------------------
-   One-like-per-device tracking
-   (the only piece of this app that uses localStorage — needed
-   because Firebase has no concept of "this visitor already liked
-   this," and there's no login system for anonymous viewers)
---------------------------------------------------------- */
-const LIKED_KEY = "flux_liked_review_ids";
 
-function getLikedSet() {
-  try {
-    const raw = localStorage.getItem(LIKED_KEY);
-    return new Set(raw ? JSON.parse(raw) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function markAsLiked(id) {
-  try {
-    const set = getLikedSet();
-    set.add(id);
-    localStorage.setItem(LIKED_KEY, JSON.stringify([...set]));
-  } catch {
-    /* localStorage unavailable (private browsing etc.) — like still works, just not remembered */
-  }
-}
-
-function hasLiked(id) {
-  return getLikedSet().has(id);
-}
 
 /* ---------------------------------------------------------
    DOM refs
@@ -98,15 +53,6 @@ const toastContainer = $("toastContainer");
 /* ---------------------------------------------------------
    Helpers
 --------------------------------------------------------- */
-function escapeHtml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function showToast(message, type = "info") {
   const icons = { success: "✅", error: "⚠️", info: "ℹ️" };
   const toast = document.createElement("div");
@@ -114,28 +60,6 @@ function showToast(message, type = "info") {
   toast.innerHTML = `<span class="toast-icon">${icons[type] || "ℹ️"}</span><span>${escapeHtml(message)}</span>`;
   toastContainer.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
-}
-
-function starRatingMarkup(rating) {
-  const pct = Math.max(0, Math.min(100, (rating / 10) * 100));
-  return `
-    <span class="star-rating" style="--rating-pct:${pct}%">
-      <span class="stars-bg">★★★★★</span>
-      <span class="stars-fg">★★★★★</span>
-    </span>
-    <span class="rating-num">${Number(rating).toFixed(1)}/10</span>
-  `;
-}
-
-function animateStarFills(scope = document) {
-  requestAnimationFrame(() => {
-    scope.querySelectorAll(".star-rating:not(.filled)").forEach((el) => el.classList.add("filled"));
-  });
-}
-
-function truncate(text = "", len = 120) {
-  if (text.length <= len) return text;
-  return text.slice(0, len).trim() + "…";
 }
 
 /* ---------------------------------------------------------
@@ -272,48 +196,7 @@ function debounce(fn, delay) {
   };
 }
 
-/* ---------------------------------------------------------
-   Like system (Firebase transaction — race-condition safe)
---------------------------------------------------------- */
-function toggleLike(id, btnEl) {
-  if (!id || likeInFlight.has(id)) return;
 
-  if (hasLiked(id)) {
-    showToast("You've already liked this one!", "info");
-    return;
-  }
-
-  likeInFlight.add(id);
-
-  const likesRef = ref(db, `reviews/${id}/likes`);
-  runTransaction(likesRef, (current) => (current || 0) + 1)
-    .then((result) => {
-      btnEl.classList.add("liked", "bounce");
-      setTimeout(() => btnEl.classList.remove("bounce"), 500);
-      const countEl = btnEl.querySelector(".like-count");
-      if (countEl && result.snapshot.exists()) countEl.textContent = result.snapshot.val();
-      markAsLiked(id);
-      showToast("Thanks for the like!", "success");
-    })
-    .catch((err) => showToast("Error: " + err.message, "error"))
-    .finally(() => likeInFlight.delete(id));
-}
-
-/* ---------------------------------------------------------
-   Share button
---------------------------------------------------------- */
-function handleShare(r) {
-  const shareUrl = `${location.origin}${location.pathname}#${r.id}`;
-  const shareText = `${r.movieName} (${r.releaseYear}) — ${Number(r.rating).toFixed(1)}/10 on FluxReviews`;
-
-  if (navigator.share) {
-    navigator.share({ title: r.movieName, text: shareText, url: shareUrl }).catch(() => {});
-  } else if (navigator.clipboard) {
-    navigator.clipboard.writeText(shareUrl).then(() => showToast("Link copied to clipboard!", "success"));
-  } else {
-    showToast(shareUrl, "info");
-  }
-}
 
 /* ---------------------------------------------------------
    Grid click delegation
@@ -324,10 +207,10 @@ viewerGrid.addEventListener("click", (e) => {
   const genreTag = e.target.closest(".genre-tag.clickable");
   const card = e.target.closest(".movie-card");
 
-  if (heartBtn) { toggleLike(heartBtn.dataset.id, heartBtn); return; }
+  if (heartBtn) { toggleLike(heartBtn.dataset.id, heartBtn, db, showToast); return; }
   if (shareBtn) {
     const r = reviewsCache[shareBtn.dataset.id];
-    if (r) handleShare({ id: shareBtn.dataset.id, ...r });
+    if (r) handleShare({ id: shareBtn.dataset.id, ...r }, showToast);
     return;
   }
   if (genreTag) { e.stopPropagation(); filterByGenre(genreTag.dataset.genre); return; }
@@ -360,6 +243,7 @@ function openDetailModal(id) {
   const likedClass = hasLiked(r.id) ? "liked" : "";
 
   detailModalCard.innerHTML = `
+    <div class="modal-bg-blur" style="background-image: url('${escapeHtml(r.poster)}')"></div>
     <button class="modal-close" id="closeDetailBtn">✕</button>
     <div class="modal-scroll-inner">
       <div class="modal-poster">
@@ -407,8 +291,8 @@ function openDetailModal(id) {
   history.replaceState(null, "", `#${id}`);
 
   $("closeDetailBtn").addEventListener("click", closeDetailModal);
-  $("modalHeartBtn").addEventListener("click", () => toggleLike(r.id, $("modalHeartBtn")));
-  $("modalShareBtn").addEventListener("click", () => handleShare(r));
+  $("modalHeartBtn").addEventListener("click", () => toggleLike(r.id, $("modalHeartBtn"), db, showToast));
+  $("modalShareBtn").addEventListener("click", () => handleShare(r, showToast));
   detailModalCard.querySelectorAll(".genre-tag.clickable").forEach((tag) => {
     tag.addEventListener("click", () => filterByGenre(tag.dataset.genre));
   });

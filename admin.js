@@ -9,36 +9,14 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-/* ---------------------------------------------------------
-   🔥 FIREBASE CONFIGURATION
-   Replace the values below with your own Firebase project
-   credentials (Firebase Console → Project Settings → General
-   → Your apps → SDK setup and configuration).
-   IMPORTANT: keep this identical to the config in viewer.js
-   so both pages read/write the same database.
---------------------------------------------------------- */
-const firebaseConfig = {
-  apiKey: "AIzaSyBJHgN6x3LQm3a9Y6OEyLIrlwHYBeHZsXI",
-  authDomain: "fluxreviews.firebaseapp.com",
-  databaseURL: "https://fluxreviews-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "fluxreviews",
-  storageBucket: "fluxreviews.appspot.com",
-  messagingSenderId: "776993219438",
-  appId: "1:776993219438:web:77a7f23d9742469db6577f"
-};
+import { firebaseConfig, TMDB_API_KEY } from "./config.js";
+import { escapeHtml, truncate, starRatingMarkup, animateStarFills } from "./utils.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 const reviewsRef = ref(db, "reviews");
-
-/* ---------------------------------------------------------
-   🎬 TMDB CONFIGURATION
-   Get a free "API Key (v3 auth)" from:
-   https://www.themoviedb.org/settings/api
---------------------------------------------------------- */
-const TMDB_API_KEY = "d7373cd851ba19a21a9adacc706be25a";
+const ottRef = ref(db, "ott_updates");
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w780"; // HD poster size
 const TMDB_THUMB_BASE = "https://image.tmdb.org/t/p/w92"; // small thumb for result list
@@ -50,11 +28,11 @@ const TMDB_GENRE_MAP = { "Science Fiction": "Sci-Fi" };
    Constants
 --------------------------------------------------------- */
 const GENRES = [
-  "Action","Adventure","Animation","Anime","Biography","Comedy","Crime",
-  "Documentary","Drama","Family","Fantasy","Film-Noir","History","Horror",
-  "Music","Musical","Mystery","Psychological Thriller","Romance","Sci-Fi",
-  "Sport","Superhero","Suspense","Thriller","War","Western","Cyberpunk",
-  "Dark Comedy","Slice of Life","Coming of Age"
+  "Action", "Adventure", "Animation", "Anime", "Biography", "Comedy", "Crime",
+  "Documentary", "Drama", "Family", "Fantasy", "Film-Noir", "History", "Horror",
+  "Music", "Musical", "Mystery", "Psychological Thriller", "Romance", "Sci-Fi",
+  "Sport", "Superhero", "Suspense", "Thriller", "War", "Western", "Cyberpunk",
+  "Dark Comedy", "Slice of Life", "Coming of Age"
 ];
 
 /* ---------------------------------------------------------
@@ -64,7 +42,13 @@ let reviewsCache = {};
 let selectedGenres = new Set();
 let editingId = null;
 let pendingDeleteId = null;
+let pendingDeleteType = "review";
 let reviewsListenerAttached = false;
+
+let ottCache = {};
+let editingOttId = null;
+let ottListenerAttached = false;
+const OTT_PLATFORMS = ["Netflix", "Prime Video", "JioHotstar", "SonyLiv", "ZEE5", "Others"];
 
 /* ---------------------------------------------------------
    DOM refs
@@ -115,18 +99,33 @@ const confirmDeleteBtn = $("confirmDeleteBtn");
 
 const toastContainer = $("toastContainer");
 
+const adminTabBtns = document.querySelectorAll(".admin-tab-btn");
+const reviewsTabPanel = $("reviewsTabPanel");
+const ottTabPanel = $("ottTabPanel");
+
+const ottForm = $("ottForm");
+const ottIdInput = $("ottId");
+const ottTitleInput = $("ottTitle");
+const ottPosterInput = $("ottPoster");
+const ottPosterPreview = $("ottPosterPreview");
+const ottPlatformInput = $("ottPlatform");
+const ottReleaseDateInput = $("ottReleaseDate");
+const ottDescriptionInput = $("ottDescription");
+const ottSubmitBtn = $("ottSubmitBtn");
+const ottCancelEditBtn = $("ottCancelEditBtn");
+const ottFormTitle = $("ottFormTitle");
+
+const ottGrid = $("ottGrid");
+const ottCount = $("ottCount");
+const ottPlatformFilter = $("ottPlatformFilter");
+const ottSortSelect = $("ottSortSelect");
+
+const confirmTitle = $("confirmTitle");
+const confirmText = $("confirmText");
+
 /* ---------------------------------------------------------
    Helpers
 --------------------------------------------------------- */
-function escapeHtml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function showToast(message, type = "info") {
   const icons = { success: "✅", error: "⚠️", info: "ℹ️" };
   const toast = document.createElement("div");
@@ -136,27 +135,18 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.remove(), 3000);
 }
 
-function starRatingMarkup(rating) {
-  const pct = Math.max(0, Math.min(100, (rating / 10) * 100));
-  return `
-    <span class="star-rating" style="--rating-pct:${pct}%">
-      <span class="stars-bg">★★★★★</span>
-      <span class="stars-fg">★★★★★</span>
-    </span>
-    <span class="rating-num">${Number(rating).toFixed(1)}/10</span>
-  `;
-}
-
-function animateStarFills(scope = document) {
-  requestAnimationFrame(() => {
-    scope.querySelectorAll(".star-rating:not(.filled)").forEach((el) => el.classList.add("filled"));
+/* ---------------------------------------------------------
+   Admin tab switching — Reviews / OTT Updates
+--------------------------------------------------------- */
+adminTabBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    adminTabBtns.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    const isReviews = btn.dataset.tab === "reviews";
+    reviewsTabPanel.classList.toggle("hidden", !isReviews);
+    ottTabPanel.classList.toggle("hidden", isReviews);
   });
-}
-
-function truncate(text = "", len = 130) {
-  if (text.length <= len) return text;
-  return text.slice(0, len).trim() + "…";
-}
+});
 
 /* ---------------------------------------------------------
    Firebase CRUD functions
@@ -555,10 +545,18 @@ adminGrid.addEventListener("click", (e) => {
 });
 
 /* ---------------------------------------------------------
-   Delete confirmation modal
+   Delete confirmation modal (shared between Reviews and OTT)
 --------------------------------------------------------- */
-function openConfirmDelete(id) {
+function openConfirmDelete(id, type = "review") {
   pendingDeleteId = id;
+  pendingDeleteType = type;
+  if (type === "ott") {
+    confirmTitle.textContent = "Delete this OTT update?";
+    confirmText.textContent = "This action cannot be undone. The OTT update will be permanently removed from the database.";
+  } else {
+    confirmTitle.textContent = "Delete this review?";
+    confirmText.textContent = "This action cannot be undone. The review will be permanently removed from the database.";
+  }
   confirmModal.classList.add("active");
 }
 function closeConfirmDelete() {
@@ -571,8 +569,9 @@ confirmModal.addEventListener("click", (e) => { if (e.target === confirmModal) c
 confirmDeleteBtn.addEventListener("click", () => {
   if (!pendingDeleteId) return;
   confirmDeleteBtn.disabled = true;
-  deleteReview(pendingDeleteId)
-    .then(() => showToast("Review deleted", "success"))
+  const task = pendingDeleteType === "ott" ? deleteOtt(pendingDeleteId) : deleteReview(pendingDeleteId);
+  task
+    .then(() => showToast(pendingDeleteType === "ott" ? "OTT update deleted" : "Review deleted", "success"))
     .catch((err) => showToast("Error: " + err.message, "error"))
     .finally(() => {
       confirmDeleteBtn.disabled = false;
@@ -593,6 +592,7 @@ function openDetailModal(id) {
   const cast = (r.cast || []).map((c) => `<span class="cast-tag">${escapeHtml(c)}</span>`).join("");
 
   detailModalCard.innerHTML = `
+    <div class="modal-bg-blur" style="background-image: url('${escapeHtml(r.poster)}')"></div>
     <button class="modal-close" id="closeDetailBtn">✕</button>
     <div class="modal-scroll-inner">
       <div class="modal-poster">
@@ -656,6 +656,174 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+/* ===========================================================
+   OTT UPDATES — Firebase CRUD, form handling, list rendering
+   =========================================================== */
+function platformBadgeClass(platform) {
+  const map = {
+    "Netflix": "platform-netflix",
+    "Prime Video": "platform-prime-video",
+    "JioHotstar": "platform-jiohotstar",
+    "SonyLiv": "platform-sonyliv",
+    "ZEE5": "platform-zee5"
+  };
+  return map[platform] || "platform-others";
+}
+
+function saveOtt(data) {
+  const newRef = push(ottRef);
+  return set(newRef, { ...data, createdAt: Date.now() });
+}
+function updateOtt(id, data) {
+  return update(ref(db, `ott_updates/${id}`), data);
+}
+function deleteOtt(id) {
+  return remove(ref(db, `ott_updates/${id}`));
+}
+function loadOttUpdates() {
+  onValue(
+    ottRef,
+    (snapshot) => {
+      ottCache = snapshot.val() || {};
+      ottCount.textContent = Object.keys(ottCache).length;
+      renderOttList();
+    },
+    (error) => showToast("Failed to load OTT updates: " + error.message, "error")
+  );
+}
+
+ottPosterInput.addEventListener("input", () => {
+  const url = ottPosterInput.value.trim();
+  if (!url) { ottPosterPreview.innerHTML = "No image"; return; }
+  ottPosterPreview.innerHTML = `<img src="${escapeHtml(url)}" alt="Poster preview" onerror="this.parentElement.innerHTML='Image failed to load'" />`;
+});
+
+ottForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+
+  const payload = {
+    title: ottTitleInput.value.trim(),
+    poster: ottPosterInput.value.trim(),
+    platform: ottPlatformInput.value,
+    releaseDate: ottReleaseDateInput.value,
+    description: ottDescriptionInput.value.trim()
+  };
+
+  if (!payload.title) return showToast("OTT title is required", "error");
+  if (!payload.poster) return showToast("Poster URL is required", "error");
+  if (!payload.platform) return showToast("Select a platform", "error");
+  if (!payload.releaseDate) return showToast("Release date is required", "error");
+
+  ottSubmitBtn.disabled = true;
+  const task = editingOttId ? updateOtt(editingOttId, payload) : saveOtt(payload);
+
+  task
+    .then(() => {
+      showToast(editingOttId ? "OTT update updated" : "OTT update added", "success");
+      resetOttForm();
+    })
+    .catch((err) => showToast("Error: " + err.message, "error"))
+    .finally(() => { ottSubmitBtn.disabled = false; });
+});
+
+function resetOttForm() {
+  ottForm.reset();
+  ottIdInput.value = "";
+  ottPosterPreview.innerHTML = "No image";
+  editingOttId = null;
+  ottFormTitle.textContent = "📺 Add OTT Update";
+  ottSubmitBtn.textContent = "💾 Save Update";
+  ottCancelEditBtn.style.display = "none";
+}
+ottCancelEditBtn.addEventListener("click", resetOttForm);
+
+function startEditOtt(id) {
+  const o = ottCache[id];
+  if (!o) return;
+
+  editingOttId = id;
+  ottIdInput.value = id;
+  ottTitleInput.value = o.title || "";
+  ottPosterInput.value = o.poster || "";
+  ottPosterPreview.innerHTML = o.poster
+    ? `<img src="${escapeHtml(o.poster)}" alt="Poster preview" onerror="this.parentElement.innerHTML='Image failed to load'" />`
+    : "No image";
+  ottPlatformInput.value = o.platform || "";
+  ottReleaseDateInput.value = o.releaseDate || "";
+  ottDescriptionInput.value = o.description || "";
+
+  ottFormTitle.textContent = "✏️ Edit OTT Update";
+  ottSubmitBtn.textContent = "💾 Update";
+  ottCancelEditBtn.style.display = "inline-flex";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function getFilteredSortedOtt() {
+  let arr = Object.entries(ottCache).map(([id, o]) => ({ id, ...o }));
+
+  const platformVal = ottPlatformFilter.value;
+  if (platformVal) arr = arr.filter((o) => o.platform === platformVal);
+
+  switch (ottSortSelect.value) {
+    case "date-new": arr.sort((a, b) => (b.releaseDate || "").localeCompare(a.releaseDate || "")); break;
+    case "date-old": arr.sort((a, b) => (a.releaseDate || "").localeCompare(b.releaseDate || "")); break;
+    case "name-az": arr.sort((a, b) => (a.title || "").localeCompare(b.title || "")); break;
+  }
+  return arr;
+}
+
+function buildOttAdminCard(o) {
+  return `
+    <article class="movie-card" data-id="${o.id}">
+      <div class="poster-wrap">
+        <img src="${escapeHtml(o.poster)}" alt="${escapeHtml(o.title)} poster"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="poster-fallback" style="display:none;">📺<br>${escapeHtml(o.title)}</div>
+        <div class="poster-gradient"></div>
+        <span class="platform-badge ${platformBadgeClass(o.platform)}" style="position:absolute; top:12px; right:12px;">${escapeHtml(o.platform || "Others")}</span>
+        <div class="card-body">
+          <div class="card-title">${escapeHtml(o.title)}</div>
+          <div class="ott-card-meta">
+            <span class="card-meta">📅 ${escapeHtml(o.releaseDate || "TBA")}</span>
+          </div>
+          <div class="card-snippet">${escapeHtml(truncate(o.description || "", 110))}</div>
+          <div class="card-footer">
+            <span></span>
+            <div class="card-admin-actions">
+              <button type="button" class="icon-btn btn-edit-ott" data-id="${o.id}" title="Edit">✏️</button>
+              <button type="button" class="icon-btn danger btn-delete-ott" data-id="${o.id}" title="Delete">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderOttList() {
+  const arr = getFilteredSortedOtt();
+  if (arr.length === 0) {
+    ottGrid.innerHTML = `
+      <div class="empty-state">
+        <div class="emoji">📺</div>
+        <h3>No OTT updates yet</h3>
+        <p>Add one using the form, or wait for TMDB auto-detection on the viewer page.</p>
+      </div>`;
+    return;
+  }
+  ottGrid.innerHTML = arr.map(buildOttAdminCard).join("");
+}
+
+ottPlatformFilter.addEventListener("change", renderOttList);
+ottSortSelect.addEventListener("change", renderOttList);
+
+ottGrid.addEventListener("click", (e) => {
+  const editBtn = e.target.closest(".btn-edit-ott");
+  const deleteBtn = e.target.closest(".btn-delete-ott");
+  if (editBtn) { startEditOtt(editBtn.dataset.id); return; }
+  if (deleteBtn) { openConfirmDelete(deleteBtn.dataset.id, "ott"); return; }
+});
+
 /* ---------------------------------------------------------
    Authentication — login / logout / auth state gate
 --------------------------------------------------------- */
@@ -685,6 +853,10 @@ onAuthStateChanged(auth, (user) => {
       reviewsListenerAttached = true;
       loadReviews();
     }
+    if (!ottListenerAttached) {
+      ottListenerAttached = true;
+      loadOttUpdates();
+    }
   } else {
     adminApp.classList.add("admin-app-hidden");
     authGate.classList.remove("auth-gate-hidden");
@@ -697,3 +869,4 @@ onAuthStateChanged(auth, (user) => {
 renderGenreCloud();
 renderGenreFilterOptions();
 resetForm();
+resetOttForm();
