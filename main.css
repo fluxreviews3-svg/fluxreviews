@@ -1362,19 +1362,49 @@ h4 {
 }
 
 /* ---------- Admin layout ---------- */
-:root { --admin-tabs-h: 64px; }
+:root {
+  --admin-tabs-h: 64px;
+  --admin-col-height: calc(100vh - var(--header-h) - var(--admin-tabs-h) - 48px);
+}
 
 .admin-layout {
   display: grid;
   grid-template-columns: 380px 1fr;
   gap: 28px;
-  padding: 32px 0 60px;
+  padding: 24px 0 60px;
   align-items: start;
-  height: calc(100vh - var(--header-h) - var(--admin-tabs-h));
-  overflow: hidden;
 }
 
 .admin-layout.hidden { display: none; }
+
+/* Form column — the panel itself clips; the inner <form> scrolls */
+.form-card {
+  padding: 26px 8px 26px 26px;
+  position: sticky;
+  top: calc(var(--header-h) + var(--admin-tabs-h) + 24px);
+  height: var(--admin-col-height);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.form-card .panel-title { margin-right: 18px; }
+
+.form-card form {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 18px;
+  scrollbar-gutter: stable;
+}
+
+/* List column — same height reference so both scrollbars align */
+.list-section {
+  padding-top: 6px;
+  height: var(--admin-col-height);
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-gutter: stable;
+}
 
 /* ---------- Admin tab switcher (Reviews / OTT Updates) ---------- */
 .admin-tabs {
@@ -1542,33 +1572,6 @@ h4 {
   color: var(--accent-cyan);
   padding: 4px 10px;
   border-radius: var(--radius-full);
-}
-
-.form-card {
-  padding: 26px 8px 26px 26px;
-  position: sticky;
-  top: calc(var(--header-h) + 20px);
-  height: calc(100vh - var(--header-h) - 40px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.form-card .panel-title {
-  margin-right: 18px;
-}
-
-.form-card form {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 18px;
-}
-
-.list-section {
-  padding-top: 6px;
-  height: calc(100vh - var(--header-h) - 40px);
-  overflow-y: auto;
-  padding-right: 8px;
 }
 
 .card-edit-flag {
