@@ -4,11 +4,11 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { firebaseConfig } from "./config.js";
+import { firebaseConfig } from "/config.js";
 import {
   escapeHtml, truncate, starRatingMarkup, animateStarFills,
   hasLiked, toggleLike, handleShare, generateSlug
-} from "./utils.js";
+} from "/utils.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -291,7 +291,7 @@ function openDetailModal(id) {
   animateStarFills(detailModalCard);
 
   // Use slug for the URL if available, fall back to the Firebase key
-  const urlSlug = r.slug || id;
+  const urlSlug = r.slug || (r.movieName ? generateSlug(r.movieName) : id);
   history.replaceState({ reviewId: id }, r.movieName || "", `/movie/${urlSlug}`);
 
   $("closeDetailBtn").addEventListener("click", closeDetailModal);
