@@ -857,6 +857,10 @@ onAuthStateChanged(auth, (user) => {
     if (!reviewsListenerAttached) {
       reviewsListenerAttached = true;
       loadReviews();
+      // Run slug backfill once after first data load
+      onValue(reviewsRef, (snap) => {
+        backfillMissingSlugs(snap.val() || {});
+      }, { onlyOnce: true });
     }
     if (!ottListenerAttached) {
       ottListenerAttached = true;
@@ -867,6 +871,22 @@ onAuthStateChanged(auth, (user) => {
     authGate.classList.remove("auth-gate-hidden");
   }
 });
+
+/* ---------------------------------------------------------
+   Slug backfill — runs once when admin logs in.
+   Writes slugs for any review that doesn't have one yet.
+   Safe to run repeatedly — skips reviews that already have a slug.
+--------------------------------------------------------- */
+function backfillMissingSlugs(data) {
+  const entries = Object.entries(data).filter(([, r]) => !r.slug && r.movieName);
+  if (!entries.length) return;
+
+  entries.forEach(([id, r]) => {
+    const slug = generateSlug(r.movieName);
+    update(ref(db, `reviews/${id}`), { slug })
+      .catch(() => {}); // silent — backfill is best-effort
+  });
+}
 
 /* ---------------------------------------------------------
    Init — UI setup that doesn't depend on auth state
