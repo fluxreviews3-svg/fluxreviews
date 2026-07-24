@@ -3,7 +3,7 @@
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { firebaseConfig } from "./config.js";
 import {
   escapeHtml, truncate, starRatingMarkup, animateStarFills,
@@ -81,7 +81,6 @@ function loadReviews() {
       reviewsCache = snapshot.val() || {};
       updateStats();
       renderGrid();
-      backfillMissingSlugs();
       resolvePageUrl();
     },
     (error) => showToast("Failed to load reviews: " + error.message, "error")
@@ -315,67 +314,41 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* ---------------------------------------------------------
-   Slug backfill — auto-generate slugs for old reviews that
-   don't have one yet, and save them back to Firebase.
-   Runs silently once after reviews load.
---------------------------------------------------------- */
-function backfillMissingSlugs() {
-  const entries = Object.entries(reviewsCache).filter(([, r]) => !r.slug && r.movieName);
-  if (!entries.length) return;
-
-  entries.forEach(([id, r]) => {
-    const slug = generateSlug(r.movieName);
-    update(ref(db, `reviews/${id}`), { slug })
-      .then(() => { reviewsCache[id].slug = slug; })
-      .catch(() => { /* silent — backfill is best-effort */ });
-  });
-}
-
-/* ---------------------------------------------------------
    URL resolver — handles three URL shapes:
    1. /movie/hrudhayam-murali  (new slug format)
    2. /movie/-OxAqiC2s9luPMmMr4A0  (Firebase key via slug path)
    3. /#-OxAqiC2s9luPMmMr4A0  (legacy hash format — still works)
+   For reviews without a slug field yet, we match by generating
+   the slug from the title locally — no Firebase write needed.
 --------------------------------------------------------- */
 function resolvePageUrl() {
   if (detailModal.classList.contains("active")) return;
 
-  const path = location.pathname;          // e.g. /movie/hrudhayam-murali
-  const hash = location.hash.replace("#", ""); // e.g. -OxAqiC2s9...
+  const path = location.pathname;
+  const hash = location.hash.replace("#", "");
 
-  // Shape 1 & 2 — /movie/{slugOrKey}
   const moviePathMatch = path.match(/^\/movie\/(.+)$/);
   if (moviePathMatch) {
     const slugOrKey = decodeURIComponent(moviePathMatch[1]);
 
-    // First try: exact Firebase key match
-    if (reviewsCache[slugOrKey]) {
-      openDetailModal(slugOrKey);
-      return;
-    }
+    // 1. Exact Firebase key match
+    if (reviewsCache[slugOrKey]) { openDetailModal(slugOrKey); return; }
 
-    // Second try: match by slug field
+    // 2. Match by stored slug field
     const bySlug = Object.entries(reviewsCache).find(([, r]) => r.slug === slugOrKey);
-    if (bySlug) {
-      openDetailModal(bySlug[0]);
-      return;
-    }
+    if (bySlug) { openDetailModal(bySlug[0]); return; }
 
-    // Third try: slug might match a generated slug from the title
+    // 3. Match by generating slug from title (read-only, no write needed)
     const byGenerated = Object.entries(reviewsCache).find(
       ([, r]) => r.movieName && generateSlug(r.movieName) === slugOrKey
     );
-    if (byGenerated) {
-      openDetailModal(byGenerated[0]);
-      return;
-    }
-    return; // not found — just show the grid
+    if (byGenerated) { openDetailModal(byGenerated[0]); return; }
+
+    return; // not found — show the grid
   }
 
-  // Shape 3 — legacy #key hash (old shared links still work)
-  if (hash && reviewsCache[hash]) {
-    openDetailModal(hash);
-  }
+  // Legacy #key hash (old shared links still work)
+  if (hash && reviewsCache[hash]) { openDetailModal(hash); }
 }
 
 /* ---------------------------------------------------------
