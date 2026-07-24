@@ -12,6 +12,22 @@ export function escapeHtml(str = "") {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Generate a URL-friendly slug from a movie title.
+ * "Hrudhayam Murali" → "hrudhayam-murali"
+ * "Super Subbu!" → "super-subbu"
+ */
+export function generateSlug(title = "") {
+  return title
+    .toLowerCase()
+    .normalize("NFD")                    // decompose accented chars
+    .replace(/[\u0300-\u036f]/g, "")     // strip diacritic marks
+    .replace(/[^a-z0-9\s-]/g, "")       // keep only letters, digits, spaces, hyphens
+    .trim()
+    .replace(/\s+/g, "-")               // spaces → hyphens
+    .replace(/-{2,}/g, "-");            // collapse multiple hyphens
+}
+
 export function truncate(text = "", len = 100) {
   if (text.length <= len) return text;
   return text.slice(0, len).trim() + "…";
@@ -84,7 +100,8 @@ export function toggleLike(id, btnEl, db, showToast = console.log) {
 }
 
 export function handleShare(r, showToast = console.log) {
-  const shareUrl = `${location.origin}${location.pathname === '/' ? '' : location.pathname}#${r.id}`;
+  const slug = r.slug || r.id;
+  const shareUrl = `${location.origin}/movie/${slug}`;
   const shareText = `${r.movieName} (${r.releaseYear}) — ${Number(r.rating).toFixed(1)}/10 on FluxReviews`;
 
   if (navigator.share) {
