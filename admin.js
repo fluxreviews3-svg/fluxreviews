@@ -10,7 +10,7 @@ import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig, TMDB_API_KEY } from "./config.js";
-import { escapeHtml, truncate, starRatingMarkup, animateStarFills } from "./utils.js";
+import { escapeHtml, truncate, starRatingMarkup, animateStarFills, generateSlug } from "./utils.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -343,8 +343,13 @@ tmdbSearchInput.addEventListener("keydown", (e) => {
 reviewForm.addEventListener("submit", (e) => {
   e.preventDefault();
 
+  const rawName = movieNameInput.value.trim();
+
   const payload = {
-    movieName: movieNameInput.value.trim(),
+    movieName: rawName,
+    slug: editingId && reviewsCache[editingId]?.slug
+      ? reviewsCache[editingId].slug          // keep existing slug when editing
+      : generateSlug(rawName),                // generate fresh slug for new reviews
     poster: posterUrlInput.value.trim(),
     genres: Array.from(selectedGenres),
     cast: getCastArray(),
