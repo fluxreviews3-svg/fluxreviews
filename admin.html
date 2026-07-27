@@ -257,6 +257,15 @@
         <form id="ottForm" novalidate>
           <input type="hidden" id="ottId" value="" />
 
+          <div class="form-group tmdb-box">
+            <label class="form-label">🎬 Auto-fill from TMDB <span style="color:var(--text-muted); font-weight:400;">(optional)</span></label>
+            <div class="tmdb-search-row">
+              <input class="input" type="text" id="ottTmdbSearchInput" placeholder="Search a movie title..." />
+              <button type="button" class="btn btn-ghost" id="ottTmdbSearchBtn">🔍 Search</button>
+            </div>
+            <div class="tmdb-results" id="ottTmdbResults"></div>
+          </div>
+
           <div class="form-group">
             <label class="form-label" for="ottTitle">OTT Title <span class="req">*</span></label>
             <input class="input" type="text" id="ottTitle" placeholder="e.g. The Rajasaab" required />

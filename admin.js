@@ -107,6 +107,9 @@ const ottForm = $("ottForm");
 const ottIdInput = $("ottId");
 const ottTitleInput = $("ottTitle");
 const ottPosterInput = $("ottPoster");
+const ottTmdbSearchInput = $("ottTmdbSearchInput");
+const ottTmdbSearchBtn = $("ottTmdbSearchBtn");
+const ottTmdbResults = $("ottTmdbResults");
 const ottPosterPreview = $("ottPosterPreview");
 const ottPlatformInput = $("ottPlatform");
 const ottReleaseDateInput = $("ottReleaseDate");
@@ -703,6 +706,63 @@ ottPosterInput.addEventListener("input", () => {
   ottPosterPreview.innerHTML = `<img src="${escapeHtml(url)}" alt="Poster preview" onerror="this.parentElement.innerHTML='Image failed to load'" />`;
 });
 
+/* ---------------------------------------------------------
+   OTT TMDB auto-fill — search and populate title/poster/desc
+--------------------------------------------------------- */
+async function runOttTmdbSearch() {
+  const query = ottTmdbSearchInput.value.trim();
+  if (!query) return;
+  ottTmdbResults.innerHTML = `<div class="tmdb-status">Searching TMDB...</div>`;
+  try {
+    const url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("TMDB request failed");
+    const data = await res.json();
+    const results = (data.results || []).slice(0, 6);
+
+    if (!results.length) {
+      ottTmdbResults.innerHTML = `<div class="tmdb-status">No matches found.</div>`;
+      return;
+    }
+
+    ottTmdbResults.innerHTML = results.map((m) => {
+      const year = (m.release_date || "").slice(0, 4) || "—";
+      const thumb = m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : "";
+      return `
+        <button type="button" class="tmdb-result-item" data-id="${m.id}"
+          data-title="${escapeHtml(m.title)}"
+          data-poster="${m.poster_path ? `https://image.tmdb.org/t/p/w780${m.poster_path}` : ""}"
+          data-overview="${escapeHtml(m.overview || "")}">
+          ${thumb ? `<img class="tmdb-result-poster" src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : `<div class="tmdb-result-poster"></div>`}
+          <div class="tmdb-result-info">
+            <div class="tmdb-result-title">${escapeHtml(m.title)}</div>
+            <div class="tmdb-result-year">${year}</div>
+          </div>
+        </button>`;
+    }).join("");
+
+    ottTmdbResults.querySelectorAll(".tmdb-result-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        ottTitleInput.value = btn.dataset.title;
+        ottPosterInput.value = btn.dataset.poster;
+        ottDescriptionInput.value = btn.dataset.overview;
+        if (btn.dataset.poster) {
+          ottPosterPreview.innerHTML = `<img src="${escapeHtml(btn.dataset.poster)}" alt="Poster preview" onerror="this.parentElement.innerHTML='Image failed to load'" />`;
+        }
+        ottTmdbResults.innerHTML = `<div class="tmdb-status">✅ Auto-filled — now select a platform and release date.</div>`;
+        showToast("OTT details auto-filled from TMDB", "success");
+      });
+    });
+  } catch (err) {
+    ottTmdbResults.innerHTML = `<div class="tmdb-status error">⚠️ ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+ottTmdbSearchBtn.addEventListener("click", runOttTmdbSearch);
+ottTmdbSearchInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); runOttTmdbSearch(); }
+});
+
 ottForm.addEventListener("submit", (e) => {
   e.preventDefault();
 
@@ -735,6 +795,8 @@ function resetOttForm() {
   ottForm.reset();
   ottIdInput.value = "";
   ottPosterPreview.innerHTML = "No image";
+  ottTmdbSearchInput.value = "";
+  ottTmdbResults.innerHTML = "";
   editingOttId = null;
   ottFormTitle.textContent = "📺 Add OTT Update";
   ottSubmitBtn.textContent = "💾 Save Update";
@@ -857,10 +919,6 @@ onAuthStateChanged(auth, (user) => {
     if (!reviewsListenerAttached) {
       reviewsListenerAttached = true;
       loadReviews();
-      // Run slug backfill once after first data load
-      onValue(reviewsRef, (snap) => {
-        backfillMissingSlugs(snap.val() || {});
-      }, { onlyOnce: true });
     }
     if (!ottListenerAttached) {
       ottListenerAttached = true;
@@ -871,22 +929,6 @@ onAuthStateChanged(auth, (user) => {
     authGate.classList.remove("auth-gate-hidden");
   }
 });
-
-/* ---------------------------------------------------------
-   Slug backfill — runs once when admin logs in.
-   Writes slugs for any review that doesn't have one yet.
-   Safe to run repeatedly — skips reviews that already have a slug.
---------------------------------------------------------- */
-function backfillMissingSlugs(data) {
-  const entries = Object.entries(data).filter(([, r]) => !r.slug && r.movieName);
-  if (!entries.length) return;
-
-  entries.forEach(([id, r]) => {
-    const slug = generateSlug(r.movieName);
-    update(ref(db, `reviews/${id}`), { slug })
-      .catch(() => {}); // silent — backfill is best-effort
-  });
-}
 
 /* ---------------------------------------------------------
    Init — UI setup that doesn't depend on auth state
