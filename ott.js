@@ -17,7 +17,7 @@ const ottRef = ref(db, "ott_updates");
 const ottGrid = document.getElementById("ottGrid");
 const ottPlatformChips = document.getElementById("ottPlatformChips");
 
-const OTT_PLATFORMS = ["Netflix", "Prime Video", "JioHotstar", "SonyLiv", "ZEE5", "Others"];
+const OTT_PLATFORMS = ["Netflix", "Prime Video", "JioHotstar", "SonyLiv", "ZEE5", "Aha", "ETV Win", "Others"];
 let manualOttCache = {};
 let autoOttEntries = [];
 let activeOttPlatform = "";
@@ -43,7 +43,9 @@ function platformBadgeClass(platform) {
     "Prime Video": "platform-prime-video",
     "JioHotstar": "platform-jiohotstar",
     "SonyLiv": "platform-sonyliv",
-    "ZEE5": "platform-zee5"
+    "ZEE5": "platform-zee5",
+    "Aha": "platform-aha",
+    "ETV Win": "platform-etv-win"
   };
   return map[platform] || "platform-others";
 }
