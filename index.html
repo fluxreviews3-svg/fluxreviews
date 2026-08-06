@@ -5,47 +5,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FluxReviews — Movie Reviews</title>
-  <meta name="description" content="Real reviews, real ratings — browse the FluxReviews catalog. Honest, spoiler-light reviews across every genre." />
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-
-  <!-- Open Graph (Google, Facebook, WhatsApp previews) -->
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://fluxreviews.netlify.app/" />
-  <meta property="og:title" content="FluxReviews — Movie Reviews" />
-  <meta property="og:description" content="Real reviews, real ratings — honest, spoiler-light movie reviews across every genre." />
-  <meta property="og:image" content="https://fluxreviews.netlify.app/og-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:site_name" content="FluxReviews" />
-
-  <!-- Twitter / X Card -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="FluxReviews — Movie Reviews" />
-  <meta name="twitter:description" content="Real reviews, real ratings — honest, spoiler-light movie reviews across every genre." />
-  <meta name="twitter:image" content="https://fluxreviews.netlify.app/og-image.png" />
-
+  <meta name="description" content="Real reviews, real ratings — browse the FluxReviews catalog" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
     rel="stylesheet" />
-  <link rel="stylesheet" href="/main.css?v=1.2" />
-  <!-- Structured data: Organization -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "FluxReviews",
-    "url": "https://fluxreviews.netlify.app",
-    "logo": "https://fluxreviews.netlify.app/og-image.png",
-    "description": "FluxReviews is an independent entertainment platform covering Telugu, Tamil, Hindi, English and international film reviews with honest ratings and spoiler-light write-ups.",
-    "sameAs": ["https://www.instagram.com/fluxreviews_/"]
-  }
-  </script>
+  <link rel="stylesheet" href="main.css?v=1.1" />
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4625904588019368" crossorigin="anonymous"></script>
 </head>
 
 <body>
@@ -57,7 +24,7 @@
 
   <header class="site-header">
     <div class="container header-inner">
-      <a class="brand" href="/about.html">
+      <a class="brand" href="about.html">
         <div class="brand-mark">
           <svg class="brand-mark-icon" viewBox="0 0 100 100" fill="#0a0e17" xmlns="http://www.w3.org/2000/svg">
             <polygon points="20.87,90.01 15.13,85.99 32.91,66.7" />
@@ -94,9 +61,9 @@
       <span class="stat-pill"><b id="statTotal">0</b> reviews</span>
       <span class="stat-pill"><b id="statGenres">0</b> genres covered</span>
       <span class="stat-pill"><b id="statAvg">0.0</b> avg rating</span>
-      <a class="stat-pill stat-pill-link" href="/upcoming.html">🎬 Upcoming</a>
-      <a class="stat-pill stat-pill-link" href="/ott.html">📺 OTT Releases</a>
-      <a class="stat-pill stat-pill-link" href="/about.html">ℹ️ About Us</a>
+      <a class="stat-pill stat-pill-link" href="upcoming.html">🎬 Upcoming</a>
+      <a class="stat-pill stat-pill-link" href="ott.html">📺 OTT Releases</a>
+      <a class="stat-pill stat-pill-link" href="about.html">ℹ️ About Us</a>
     </div>
   </section>
 
@@ -198,10 +165,15 @@
 
   <footer class="site-footer">
     <p class="footer-tagline">FluxReviews · Crafted with Firebase Realtime Database</p>
+  <div class="footer-policy-links"><a href="/privacy.html">Privacy Policy</a><span>·</span><a href="/terms.html">Terms &amp; Conditions</a></div>
+    <div class="footer-contact-links" style="margin-top:14px;">
+      <a class="footer-contact-link" href="/privacy.html">🔒 Privacy Policy</a>
+      <a class="footer-contact-link" href="/terms.html">📄 Terms &amp; Conditions</a>
+    </div>
   </footer>
 
-  <script type="module" src="/viewer.js"></script>
-  <script type="module" src="/particles.js"></script>
+  <script type="module" src="viewer.js"></script>
+  <script type="module" src="particles.js"></script>
 </body>
 
 </html>

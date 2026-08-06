@@ -611,7 +611,8 @@ function openDetailModal(id) {
         <div class="modal-meta-row">
           <span>📅 ${r.releaseYear || "—"}</span><span>·</span>
           <span>📝 Reviewed ${escapeHtml(r.reviewDate || "")}</span><span>·</span>
-          <span>❤️ ${r.likes || 0} likes</span>
+          <span>❤️ ${r.likes || 0} likes</span><span>·</span>
+          <span>✍️ FluxReviews Team</span>
         </div>
         <div class="modal-section">
           <div class="modal-section-label">Rating</div>
