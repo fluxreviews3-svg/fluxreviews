@@ -1,0 +1,21 @@
+# FluxReviews — Netlify Configuration
+
+[build]
+  # Where Netlify looks for serverless functions
+  functions = "netlify/functions"
+
+# Route /sitemap.xml to the serverless sitemap generator.
+# This runs on every request so the sitemap is always up to date
+# with the latest reviews from Firebase — no rebuilds needed.
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/.netlify/functions/sitemap"
+  status = 200
+  force = true
+
+# Route /sitemap_index.xml to the same function (some crawlers try this)
+[[redirects]]
+  from = "/sitemap_index.xml"
+  to = "/.netlify/functions/sitemap"
+  status = 200
+  force = true

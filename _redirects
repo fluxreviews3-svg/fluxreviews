@@ -1,10 +1,7 @@
 # FluxReviews — Netlify Redirects
 #
-# Serves index.html for all /movie/* paths so that slug-based
-# URLs like /movie/hrudhayam-murali work as a client-side SPA
-# instead of returning 404 from Netlify's static file server.
-#
-# The 200 (rewrite) means the URL stays /movie/slug in the browser
-# while Netlify transparently serves index.html — viewer.js then
-# reads window.location.pathname and opens the right modal.
+# /movie/* SPA routing — serves index.html for all movie slug URLs
+# so /movie/hrudhayam-murali works without a 404.
+# The sitemap redirect lives in netlify.toml (not here) so it can
+# use the serverless function syntax that _redirects doesn't support.
 /movie/*  /index.html  200

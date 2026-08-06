@@ -747,6 +747,28 @@ h4 {
   padding-bottom: 60px;
 }
 
+/* ---------- AdSense ad slots inside the review grid ---------- */
+.ad-slot-wrap {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+}
+.ad-slot-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+.ad-slot-ins {
+  display: block;
+  width: 100%;
+  min-height: 90px;
+}
+
 .movie-card {
   position: relative;
   border-radius: var(--radius-lg);
@@ -1459,6 +1481,114 @@ h4 {
 .platform-badge.platform-others { background: var(--glass-bg); color: var(--text-secondary); border: 1px solid var(--glass-border); }
 
 .ott-card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+
+/* ---------- OTT Releases dedicated page ---------- */
+.ott-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  padding-bottom: 20px;
+}
+
+.ott-page-card {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+  opacity: 0;
+  animation: cardIn 0.5s var(--ease) forwards;
+}
+.ott-page-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-strong), var(--shadow-glow-violet);
+  border-color: var(--glass-border-strong);
+}
+
+.ott-page-poster {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.ott-page-poster img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.45s var(--ease); }
+.ott-page-card:hover .ott-page-poster img { transform: scale(1.06); }
+
+.ott-no-poster {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; color: var(--text-muted);
+}
+
+.ott-poster-gradient {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 50%;
+  background: linear-gradient(to top, rgba(8,10,16,0.92) 10%, transparent);
+  pointer-events: none;
+}
+
+.ott-page-poster .platform-badge {
+  position: absolute; bottom: 10px; left: 10px;
+  font-size: 10px; padding: 3px 10px;
+}
+
+.ott-source-tag {
+  position: absolute; top: 8px; left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(10,14,23,0.7);
+  border: 1px solid var(--glass-border);
+  font-size: 9.5px; font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.release-badge {
+  position: absolute; top: 8px; right: 8px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 10px; font-weight: 700;
+  white-space: nowrap;
+}
+.badge-today { background: var(--accent-pink); color: #fff; box-shadow: 0 0 12px rgba(255,79,154,0.5); }
+.badge-soon { background: var(--gold); color: #0a0e17; }
+.badge-out { background: var(--success); color: #0a0e17; }
+
+.ott-page-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+.ott-page-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.ott-page-date { font-size: 12px; color: var(--text-muted); }
+.ott-page-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  flex: 1;
+}
+.ott-read-more {
+  margin-top: 8px;
+  padding: 7px 14px;
+  font-size: 12px;
+  border-radius: var(--radius-full);
+  align-self: flex-start;
+}
+
+.ott-skeleton { animation: cardIn 0s forwards; opacity: 1; }
+.ott-skeleton .ott-page-poster { aspect-ratio: 2 / 3; }
 
 /* ---------- Discovery cards (Upcoming / OTT) ---------- */
 .discover-grid {
@@ -2231,7 +2361,129 @@ h4 {
   font-size: 12px;
 }
 
-/* ---------- Responsive ---------- */
+/* ---------- Footer policy links ---------- */
+.footer-policy-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.footer-policy-links a {
+  color: var(--text-muted);
+  transition: var(--transition-fast);
+}
+.footer-policy-links a:hover { color: var(--accent-cyan); }
+.footer-policy-links span { color: var(--glass-border); }
+
+/* ---------- Legal pages (Privacy Policy, Terms & Conditions) ---------- */
+.legal-page {
+  max-width: 780px;
+  padding-top: 40px;
+  padding-bottom: 80px;
+}
+
+.legal-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.legal-header h1 {
+  font-size: clamp(26px, 4vw, 38px);
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 8px;
+}
+
+.legal-date {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.legal-card {
+  padding: 36px 40px;
+}
+
+.legal-section {
+  margin-bottom: 34px;
+  padding-bottom: 34px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.legal-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.legal-section h2 {
+  font-size: 17px;
+  font-family: var(--font-display);
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.legal-section p {
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin-bottom: 10px;
+}
+.legal-section p:last-child { margin-bottom: 0; }
+
+.legal-section a {
+  color: var(--accent-cyan);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.legal-section a:hover { color: var(--text-primary); }
+
+.legal-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.legal-list li {
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  padding-left: 18px;
+  position: relative;
+}
+.legal-list li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--accent-cyan);
+  font-size: 12px;
+  top: 3px;
+}
+.legal-list a {
+  color: var(--accent-cyan);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+code {
+  font-family: monospace;
+  font-size: 13px;
+  background: rgba(255,255,255,0.07);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-cyan);
+}
+
+@media (max-width: 640px) {
+  .legal-card { padding: 24px 18px; }
+  .legal-section h2 { font-size: 15px; }
+}
+
 @media (max-width: 980px) {
   .admin-layout {
     grid-template-columns: 1fr;
@@ -2335,6 +2587,11 @@ h4 {
 
   .hero-subline {
     font-size: 14.5px;
+  }
+
+  .ott-page-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
   }
 }
 

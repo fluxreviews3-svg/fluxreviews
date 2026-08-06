@@ -3,12 +3,12 @@
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { firebaseConfig } from "/config.js";
+import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { firebaseConfig } from "./config.js";
 import {
   escapeHtml, truncate, starRatingMarkup, animateStarFills,
   hasLiked, toggleLike, handleShare, generateSlug
-} from "/utils.js";
+} from "./utils.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -81,6 +81,7 @@ function loadReviews() {
       reviewsCache = snapshot.val() || {};
       updateStats();
       renderGrid();
+      backfillMissingSlugs();
       resolvePageUrl();
     },
     (error) => showToast("Failed to load reviews: " + error.message, "error")
@@ -169,6 +170,22 @@ function buildCard(r, index) {
   `;
 }
 
+const AD_EVERY_N_CARDS = 10; // injects an ad after every 2 rows (~5 cards/row on desktop)
+const ADSENSE_PUB = "ca-pub-4625904588019368";
+const ADSENSE_SLOT = "9083552590"; // replace with your slot ID from AdSense dashboard
+
+function buildAdSlot(index) {
+  return `
+    <div class="ad-slot-wrap" aria-label="Advertisement">
+      <span class="ad-slot-label">Advertisement</span>
+      <ins class="adsbygoogle ad-slot-ins"
+        data-ad-client="${ADSENSE_PUB}"
+        data-ad-slot="${ADSENSE_SLOT}"
+        data-ad-format="auto"
+        data-full-width-responsive="true"></ins>
+    </div>`;
+}
+
 function renderGrid() {
   const arr = getFilteredSortedReviews();
 
@@ -182,7 +199,22 @@ function renderGrid() {
     return;
   }
 
-  viewerGrid.innerHTML = arr.map((r, i) => buildCard(r, i)).join("");
+  let html = "";
+  arr.forEach((r, i) => {
+    html += buildCard(r, i);
+    // inject ad after every AD_EVERY_N_CARDS cards (but not after the last card)
+    if ((i + 1) % AD_EVERY_N_CARDS === 0 && i < arr.length - 1) {
+      html += buildAdSlot(i);
+    }
+  });
+  viewerGrid.innerHTML = html;
+
+  // tell AdSense to fill the newly injected ad slots
+  if (window.adsbygoogle) {
+    viewerGrid.querySelectorAll(".adsbygoogle:not([data-adsbygoogle-status])").forEach(() => {
+      try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+    });
+  }
 }
 
 searchInput.addEventListener("input", debounce(renderGrid, 200));
@@ -254,7 +286,8 @@ function openDetailModal(id) {
         <h3 class="modal-title">${escapeHtml(r.movieName)}</h3>
         <div class="modal-meta-row">
           <span>📅 ${r.releaseYear || "—"}</span><span>·</span>
-          <span>📝 Reviewed ${escapeHtml(r.reviewDate || "")}</span>
+          <span>📝 Reviewed ${escapeHtml(r.reviewDate || "")}</span><span>·</span>
+          <span>✍️ FluxReviews Team</span>
         </div>
         <div class="modal-section">
           <div class="modal-section-label">Rating</div>
@@ -291,7 +324,7 @@ function openDetailModal(id) {
   animateStarFills(detailModalCard);
 
   // Use slug for the URL if available, fall back to the Firebase key
-  const urlSlug = r.slug || (r.movieName ? generateSlug(r.movieName) : id);
+  const urlSlug = r.slug || id;
   history.replaceState({ reviewId: id }, r.movieName || "", `/movie/${urlSlug}`);
 
   $("closeDetailBtn").addEventListener("click", closeDetailModal);
@@ -314,41 +347,67 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* ---------------------------------------------------------
+   Slug backfill — auto-generate slugs for old reviews that
+   don't have one yet, and save them back to Firebase.
+   Runs silently once after reviews load.
+--------------------------------------------------------- */
+function backfillMissingSlugs() {
+  const entries = Object.entries(reviewsCache).filter(([, r]) => !r.slug && r.movieName);
+  if (!entries.length) return;
+
+  entries.forEach(([id, r]) => {
+    const slug = generateSlug(r.movieName);
+    update(ref(db, `reviews/${id}`), { slug })
+      .then(() => { reviewsCache[id].slug = slug; })
+      .catch(() => { /* silent — backfill is best-effort */ });
+  });
+}
+
+/* ---------------------------------------------------------
    URL resolver — handles three URL shapes:
    1. /movie/hrudhayam-murali  (new slug format)
    2. /movie/-OxAqiC2s9luPMmMr4A0  (Firebase key via slug path)
    3. /#-OxAqiC2s9luPMmMr4A0  (legacy hash format — still works)
-   For reviews without a slug field yet, we match by generating
-   the slug from the title locally — no Firebase write needed.
 --------------------------------------------------------- */
 function resolvePageUrl() {
   if (detailModal.classList.contains("active")) return;
 
-  const path = location.pathname;
-  const hash = location.hash.replace("#", "");
+  const path = location.pathname;          // e.g. /movie/hrudhayam-murali
+  const hash = location.hash.replace("#", ""); // e.g. -OxAqiC2s9...
 
+  // Shape 1 & 2 — /movie/{slugOrKey}
   const moviePathMatch = path.match(/^\/movie\/(.+)$/);
   if (moviePathMatch) {
     const slugOrKey = decodeURIComponent(moviePathMatch[1]);
 
-    // 1. Exact Firebase key match
-    if (reviewsCache[slugOrKey]) { openDetailModal(slugOrKey); return; }
+    // First try: exact Firebase key match
+    if (reviewsCache[slugOrKey]) {
+      openDetailModal(slugOrKey);
+      return;
+    }
 
-    // 2. Match by stored slug field
+    // Second try: match by slug field
     const bySlug = Object.entries(reviewsCache).find(([, r]) => r.slug === slugOrKey);
-    if (bySlug) { openDetailModal(bySlug[0]); return; }
+    if (bySlug) {
+      openDetailModal(bySlug[0]);
+      return;
+    }
 
-    // 3. Match by generating slug from title (read-only, no write needed)
+    // Third try: slug might match a generated slug from the title
     const byGenerated = Object.entries(reviewsCache).find(
       ([, r]) => r.movieName && generateSlug(r.movieName) === slugOrKey
     );
-    if (byGenerated) { openDetailModal(byGenerated[0]); return; }
-
-    return; // not found — show the grid
+    if (byGenerated) {
+      openDetailModal(byGenerated[0]);
+      return;
+    }
+    return; // not found — just show the grid
   }
 
-  // Legacy #key hash (old shared links still work)
-  if (hash && reviewsCache[hash]) { openDetailModal(hash); }
+  // Shape 3 — legacy #key hash (old shared links still work)
+  if (hash && reviewsCache[hash]) {
+    openDetailModal(hash);
+  }
 }
 
 /* ---------------------------------------------------------

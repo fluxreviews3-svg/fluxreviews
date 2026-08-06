@@ -5,23 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OTT Releases — FluxReviews</title>
 <meta name="description" content="Where to stream — Netflix, Prime Video, JioHotstar, SonyLiv, ZEE5 and more." />
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://fluxreviews.netlify.app/ott.html" />
-  <meta property="og:title" content="OTT Releases — FluxReviews" />
-  <meta property="og:description" content="Where to stream — Netflix, Prime Video, JioHotstar, SonyLiv, ZEE5 and more." />
-  <meta property="og:image" content="https://fluxreviews.netlify.app/og-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:site_name" content="FluxReviews" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="OTT Releases — FluxReviews" />
-  <meta name="twitter:description" content="Where to stream — Netflix, Prime Video, JioHotstar, SonyLiv, ZEE5 and more." />
-  <meta name="twitter:image" content="https://fluxreviews.netlify.app/og-image.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -60,45 +43,26 @@
 
 <section class="hero container">
   <h1>📺 OTT Releases</h1>
-  <p>Manual updates from our team, merged live with TMDB's auto-detected streaming availability.</p>
+  <p>What's streaming where — manual picks from our team, merged with live TMDB data.</p>
+  <div class="stat-strip" style="margin-top:20px;">
+    <span class="stat-pill"><b id="ottTotalCount">—</b> releases</span>
+    <span class="stat-pill">Updated live</span>
+  </div>
 </section>
 
 <main class="container" style="padding-bottom:60px;">
   <div class="chip-cloud ott-chip-cloud" id="ottPlatformChips"></div>
-  <div class="discover-grid" id="ottGrid" data-aos="fade-up">
-    <div class="discover-card discover-skeleton">
-      <div class="discover-poster skeleton-pulse"></div>
-      <div class="discover-info">
-        <div class="skeleton-title skeleton-pulse" style="height:10px; width:80%;"></div>
-        <div class="skeleton-meta skeleton-pulse" style="height:8px; width:40%; margin-bottom:0;"></div>
-      </div>
-    </div>
-    <div class="discover-card discover-skeleton">
-      <div class="discover-poster skeleton-pulse"></div>
-      <div class="discover-info">
-        <div class="skeleton-title skeleton-pulse" style="height:10px; width:80%;"></div>
-        <div class="skeleton-meta skeleton-pulse" style="height:8px; width:40%; margin-bottom:0;"></div>
-      </div>
-    </div>
-    <div class="discover-card discover-skeleton">
-      <div class="discover-poster skeleton-pulse"></div>
-      <div class="discover-info">
-        <div class="skeleton-title skeleton-pulse" style="height:10px; width:80%;"></div>
-        <div class="skeleton-meta skeleton-pulse" style="height:8px; width:40%; margin-bottom:0;"></div>
-      </div>
-    </div>
-    <div class="discover-card discover-skeleton">
-      <div class="discover-poster skeleton-pulse"></div>
-      <div class="discover-info">
-        <div class="skeleton-title skeleton-pulse" style="height:10px; width:80%;"></div>
-        <div class="skeleton-meta skeleton-pulse" style="height:8px; width:40%; margin-bottom:0;"></div>
-      </div>
-    </div>
-  </div>
+  <div class="ott-page-grid" id="ottGrid" data-aos="fade-up"></div>
 </main>
+
+<!-- OTT Detail Modal -->
+<div class="modal-overlay" id="ottModal">
+  <div class="glass-panel modal-card" id="ottModalCard"></div>
+</div>
 
 <footer class="site-footer">
   <p class="footer-tagline">FluxReviews · Crafted with Firebase Realtime Database</p>
+  <div class="footer-policy-links"><a href="/privacy.html">Privacy Policy</a><span>·</span><a href="/terms.html">Terms &amp; Conditions</a></div>
 </footer>
 
 <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
