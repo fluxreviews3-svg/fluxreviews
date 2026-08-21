@@ -9,8 +9,8 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { firebaseConfig, TMDB_API_KEY } from "./config.js";
-import { escapeHtml, truncate, starRatingMarkup, animateStarFills, generateSlug } from "./utils.js";
+import { firebaseConfig, TMDB_API_KEY } from "/config.js";
+import { escapeHtml, truncate, starRatingMarkup, animateStarFills, generateSlug } from "/utils.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);

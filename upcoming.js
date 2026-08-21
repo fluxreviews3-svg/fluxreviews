@@ -2,8 +2,8 @@
    FluxReviews — Upcoming Releases Page Logic
    ========================================================= */
 
-import { escapeHtml } from "./utils.js";
-import { getUpcoming, TMDB_IMG, formatReleaseDate } from "./tmdb.js";
+import { escapeHtml } from "/utils.js";
+import { getUpcoming, TMDB_IMG, formatReleaseDate } from "/tmdb.js";
 
 const upcomingGrid = document.getElementById("upcomingGrid");
 

@@ -4,11 +4,11 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { firebaseConfig } from "./config.js";
+import { firebaseConfig } from "/config.js";
 import {
   escapeHtml, truncate, starRatingMarkup, animateStarFills,
   hasLiked, toggleLike, handleShare, generateSlug
-} from "./utils.js";
+} from "/utils.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
