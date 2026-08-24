@@ -1,8 +1,9 @@
 # FluxReviews — Netlify Configuration
 
 [build]
-  # Tell Netlify where the serverless functions live
-  functions = "netlify/functions"
+
+[functions]
+  directory = "netlify/functions"
 
 # Route /sitemap.xml to the sitemap generator function.
 # status = 200 means a rewrite (URL stays /sitemap.xml in browser).
@@ -19,6 +20,3 @@
   to     = "/.netlify/functions/sitemap"
   status = 200
   force  = true
-
-# NOTE: /movie/* SPA routing lives in _redirects (not here)
-# so it is not affected by these rules.
