@@ -74,6 +74,18 @@ jobs:
           fi
           echo "OK: config.js generated successfully with correct keys"
 
+      - name: Validate _redirects (Netlify SPA routing)
+        run: |
+          if [ ! -f "_redirects" ]; then
+            echo "FAIL: _redirects file is missing — /movie/* URLs will 404 on Netlify"
+            exit 1
+          fi
+          if ! grep -q "/movie/\*.*200" _redirects; then
+            echo "FAIL: _redirects is missing the /movie/* rewrite rule"
+            exit 1
+          fi
+          echo "OK: _redirects looks correct"
+
   deploy:
     needs: validate
     runs-on: ubuntu-latest
@@ -102,6 +114,8 @@ jobs:
         uses: nwtgck/actions-netlify@v3
         with:
           publish-dir: "."
+          functions-dir: "./netlify/functions"
+          netlify-config-path: "./netlify.toml"
           production-deploy: true
           deploy-message: "Deploy from GitHub Actions: ${{ github.sha }}"
           github-token: ${{ secrets.GITHUB_TOKEN }}
