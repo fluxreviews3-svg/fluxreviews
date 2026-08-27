@@ -1,27 +1,19 @@
 /* =========================================================
    FluxReviews — Dynamic Sitemap Generator
    Netlify Function: netlify/functions/sitemap.js
-
-   Served at: /sitemap.xml  (routed via netlify.toml)
-
-   Fetches /reviews and /ott_updates from Firebase REST API
-   and builds a proper XML sitemap with every movie slug URL,
-   static pages, and the OTT page.
-
-   Requirements met:
-   ✅ Fetches all reviews and ott_updates from Firebase
-   ✅ Returns Content-Type: application/xml
-   ✅ Includes /movie/{slug} for every review
-   ✅ Falls back to generated slug if slug field is missing
-   ✅ Logs Firebase errors — never silently returns homepage-only
-   ✅ Includes all static pages that actually exist
-   ✅ Does not conflict with any static sitemap.xml
-   ✅ Does not touch /movie/* SPA routing
+   Node.js 18+ required (for native fetch support)
    ========================================================= */
 
 const SITE_URL = "https://fluxreviews.netlify.app";
-const DB_URL =
-  "https://fluxreviews-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+const DB_URL = (
+  process.env.FIREBASE_DATABASE_URL ||
+  "https://fluxreviews-default-rtdb.asia-southeast1.firebasedatabase.app"
+).replace(/\/$/, "");
+
+if (!process.env.FIREBASE_DATABASE_URL) {
+  console.warn("[sitemap] FIREBASE_DATABASE_URL env var not set — using hardcoded fallback");
+}
 
 /* ── Static pages that actually exist in the repo ──────── */
 const STATIC_PAGES = [
@@ -48,17 +40,29 @@ function generateSlug(title = "") {
 /* ── Fetch from Firebase REST API ───────────────────────── */
 async function fetchFirebase(path) {
   const url = `${DB_URL}${path}.json`;
-  const res = await fetch(url, { method: "GET" });
+
+  console.log(`[sitemap] Fetching Firebase: ${url}`);
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  const body = await res.text();
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "(unreadable)");
     throw new Error(
       `Firebase request failed: ${res.status} ${res.statusText} — ${url} — body: ${body}`
     );
   }
 
-  const data = await res.json();
-  return data;
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error(
+      `Firebase returned invalid JSON — ${url} — body: ${body.slice(0, 200)}`
+    );
+  }
 }
 
 /* ── XML helpers ─────────────────────────────────────────── */
