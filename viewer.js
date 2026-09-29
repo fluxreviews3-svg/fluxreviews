@@ -3,8 +3,7 @@
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { firebaseConfig } from "/config.js";
+import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";import { firebaseConfig } from "/config.js";
 import {
   escapeHtml, truncate, starRatingMarkup, animateStarFills,
   hasLiked, toggleLike, handleShare, generateSlug
@@ -12,7 +11,6 @@ import {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const reviewsRef = ref(db, "reviews");
 
 /* ---------------------------------------------------------
    Constants
@@ -74,18 +72,25 @@ function renderGenreFilterOptions() {
 /* ---------------------------------------------------------
    Realtime listener
 --------------------------------------------------------- */
-function loadReviews() {
-  onValue(
-    reviewsRef,
-    (snapshot) => {
-      reviewsCache = snapshot.val() || {};
-      updateStats();
-      renderGrid();
-      backfillMissingSlugs();
-      resolvePageUrl();
-    },
-    (error) => showToast("Failed to load reviews: " + error.message, "error")
-  );
+const API_BASE_URL = "https://fluxreviews-backend.onrender.com";
+
+async function loadReviews() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/reviews?limit=200`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const json = await res.json();
+
+    reviewsCache = {};
+    json.data.forEach((r) => {
+      reviewsCache[r.id] = r;
+    });
+
+    updateStats();
+    renderGrid();
+    resolvePageUrl();
+  } catch (error) {
+    showToast("Failed to load reviews: " + error.message, "error");
+  }
 }
 
 function updateStats() {
@@ -345,23 +350,6 @@ detailModal.addEventListener("click", (e) => { if (e.target === detailModal) clo
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeDetailModal();
 });
-
-/* ---------------------------------------------------------
-   Slug backfill — auto-generate slugs for old reviews that
-   don't have one yet, and save them back to Firebase.
-   Runs silently once after reviews load.
---------------------------------------------------------- */
-function backfillMissingSlugs() {
-  const entries = Object.entries(reviewsCache).filter(([, r]) => !r.slug && r.movieName);
-  if (!entries.length) return;
-
-  entries.forEach(([id, r]) => {
-    const slug = generateSlug(r.movieName);
-    update(ref(db, `reviews/${id}`), { slug })
-      .then(() => { reviewsCache[id].slug = slug; })
-      .catch(() => { /* silent — backfill is best-effort */ });
-  });
-}
 
 /* ---------------------------------------------------------
    URL resolver — handles three URL shapes:

@@ -2,14 +2,7 @@
    FluxReviews — About / Landing Page Logic
    ========================================================= */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { firebaseConfig } from "/config.js";
 import { escapeHtml, truncate, hasLiked, toggleLike } from "/utils.js";
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const reviewsRef = ref(db, "reviews");
 
 /* ---------------------------------------------------------
    Reviews preview (latest 3)
@@ -48,30 +41,27 @@ function buildPreviewCard(r) {
   `;
 }
 
-function loadPreview() {
-  onValue(
-    reviewsRef,
-    (snapshot) => {
-      const data = snapshot.val() || {};
-      const arr = Object.entries(data)
-        .map(([id, r]) => ({ id, ...r }))
-        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-        .slice(0, 3);
+const API_BASE_URL = "https://fluxreviews-backend.onrender.com";
 
-      if (arr.length === 0) {
-        previewGrid.innerHTML = `<div class="empty-state"><div class="emoji">🎬</div><h3>No reviews published yet</h3></div>`;
-        return;
-      }
+async function loadPreview() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/reviews?limit=3`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const json = await res.json();
+    const arr = json.data || [];
 
-      previewGrid.innerHTML = arr.map(buildPreviewCard).join("");
-      previewGrid.querySelectorAll(".heart-btn").forEach((btn) => {
-        btn.addEventListener("click", () => toggleLike(btn.dataset.id, btn, db));
-      });
-    },
-    () => {
-      previewGrid.innerHTML = `<div class="empty-state"><div class="emoji">⚠️</div><h3>Couldn't load reviews right now</h3></div>`;
+    if (arr.length === 0) {
+      previewGrid.innerHTML = `<div class="empty-state"><div class="emoji">🎬</div><h3>No reviews published yet</h3></div>`;
+      return;
     }
-  );
+
+    previewGrid.innerHTML = arr.map(buildPreviewCard).join("");
+    previewGrid.querySelectorAll(".heart-btn").forEach((btn) => {
+      btn.addEventListener("click", () => toggleLike(btn.dataset.id, btn));
+    });
+  } catch (err) {
+    previewGrid.innerHTML = `<div class="empty-state"><div class="emoji">⚠️</div><h3>Couldn't load reviews right now</h3></div>`;
+  }
 }
 
 /* ---------------------------------------------------------

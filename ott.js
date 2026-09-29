@@ -2,15 +2,8 @@
    FluxReviews — OTT Releases Page Logic
    ========================================================= */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { firebaseConfig } from "/config.js";
 import { escapeHtml } from "/utils.js";
 import { getUpcoming, getWatchProviders, TMDB_IMG, formatReleaseDate } from "/tmdb.js";
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const ottRef = ref(db, "ott_updates");
 
 const ottGrid = document.getElementById("ottGrid");
 const ottPlatformChips = document.getElementById("ottPlatformChips");
@@ -178,6 +171,7 @@ function renderOttSection() {
       openOttModal(Number(card.dataset.index));
     });
   });
+
   ottGrid.querySelectorAll(".ott-read-more").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -223,14 +217,18 @@ function loadAutoOttEntries() {
             .then((res) => {
               const inRegion = res.results?.IN;
               if (!inRegion) return [];
+
               const providers = [...(inRegion.flatrate || [])];
               const seen = new Set();
               const entries = [];
+
               providers.forEach((p) => {
                 const platform = mapProviderToPlatform(p.provider_name);
                 if (platform === "Others") return;
                 if (seen.has(platform)) return;
+
                 seen.add(platform);
+
                 entries.push({
                   id: `tmdb-${movie.id}-${platform}`,
                   title: movie.title,
@@ -241,6 +239,7 @@ function loadAutoOttEntries() {
                   source: "tmdb"
                 });
               });
+
               return entries;
             })
             .catch(() => [])
@@ -253,11 +252,21 @@ function loadAutoOttEntries() {
 /* ---------------------------------------------------------
    Firebase manual entries
 --------------------------------------------------------- */
-function loadManualOtt() {
-  onValue(ottRef, (snapshot) => {
-    manualOttCache = snapshot.val() || {};
+const API_BASE_URL = "https://fluxreviews-backend.onrender.com";
+
+async function loadManualOtt() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/ott`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const json = await res.json();
+
+    manualOttCache = {};
+    (json.data || []).forEach((o) => { manualOttCache[o.id] = o; });
+
     renderOttSection();
-  }, () => {});
+  } catch (err) {
+    console.error("Failed to load OTT updates:", err);
+  }
 }
 
 /* ---------------------------------------------------------

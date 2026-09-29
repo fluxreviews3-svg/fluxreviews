@@ -1,5 +1,3 @@
-import { ref, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
 const LIKED_KEY = "flux_liked_review_ids";
 const likeInFlight = new Set();
 
@@ -73,6 +71,8 @@ export function hasLiked(id) {
   return getLikedSet().has(id);
 }
 
+const API_BASE_URL = "https://fluxreviews-backend.onrender.com";
+
 export function toggleLike(id, btnEl, db, showToast = console.log) {
   if (!id || likeInFlight.has(id)) return;
 
@@ -83,14 +83,17 @@ export function toggleLike(id, btnEl, db, showToast = console.log) {
 
   likeInFlight.add(id);
 
-  const likesRef = ref(db, `reviews/${id}/likes`);
-  runTransaction(likesRef, (current) => (current || 0) + 1)
-    .then((result) => {
+  fetch(`${API_BASE_URL}/api/reviews/${id}/like`, { method: "POST" })
+    .then((res) => {
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      return res.json();
+    })
+    .then((review) => {
       btnEl.classList.add("liked", "bounce");
       setTimeout(() => btnEl.classList.remove("bounce"), 500);
       const countEl = btnEl.querySelector(".like-count");
-      if (countEl && result.snapshot.exists()) {
-        countEl.textContent = result.snapshot.val();
+      if (countEl) {
+        countEl.textContent = review.likes;
       }
       markAsLiked(id);
       showToast("Thanks for the like!", "success");
