@@ -1,9 +1,6 @@
 const SITE_URL = "https://fluxreviews.netlify.app";
 
-const DB_URL = (
-  process.env.FIREBASE_DATABASE_URL ||
-  "https://fluxreviews-default-rtdb.asia-southeast1.firebasedatabase.app"
-).replace(/\/$/, "");
+const API_BASE_URL = process.env.FLUXREVIEWS_API_URL || "https://fluxreviews-backend.onrender.com";
 
 const STATIC_PAGES = [
   { path: "/",              changefreq: "daily",   priority: "1.0" },
@@ -13,17 +10,6 @@ const STATIC_PAGES = [
   { path: "/privacy.html", changefreq: "yearly",  priority: "0.3" },
   { path: "/terms.html",   changefreq: "yearly",  priority: "0.3" },
 ];
-
-function generateSlug(title) {
-  return (title || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-{2,}/g, "-");
-}
 
 function escapeXml(str) {
   return String(str || "")
@@ -57,100 +43,17 @@ function urlEntry(loc, lastmod, changefreq, priority) {
   return lines.join("\n");
 }
 
-async function fetchFirebase(path) {
-  var url = DB_URL + path + ".json";
+async function fetchApi(path) {
+  var url = API_BASE_URL + path;
   console.log("[sitemap] fetching: " + url);
   var res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
   var body = await res.text();
   console.log("[sitemap] status: " + res.status + " body length: " + body.length);
   if (!res.ok) {
-    throw new Error("Firebase " + res.status + " " + res.statusText + " body: " + body.slice(0, 300));
+    throw new Error("API " + res.status + " " + res.statusText + " body: " + body.slice(0, 300));
   }
   return JSON.parse(body);
 }
 
 exports.handler = async function (event, context) {
   try {
-    console.log("[sitemap] started. DB_URL=" + DB_URL);
-
-    var today = new Date().toISOString().slice(0, 10);
-    var reviewEntries = [];
-    var reviewError = null;
-    var ottError = null;
-
-    try {
-      var reviews = await fetchFirebase("/reviews");
-      if (reviews && typeof reviews === "object") {
-        var keys = Object.keys(reviews);
-        console.log("[sitemap] got " + keys.length + " reviews");
-        keys.forEach(function (id) {
-          var r = reviews[id];
-          var slug = r.slug || (r.movieName ? generateSlug(r.movieName) : null);
-          if (!slug) return;
-          reviewEntries.push({
-            loc: "/movie/" + slug,
-            lastmod: isoDate(r.createdAt) || isoDate(r.reviewDate) || today,
-            changefreq: "monthly",
-            priority: "0.9",
-          });
-        });
-      }
-    } catch (e) {
-      reviewError = e.message;
-      console.error("[sitemap] reviews error: " + e.message);
-    }
-
-    try {
-      var ott = await fetchFirebase("/ott_updates");
-      if (ott && typeof ott === "object") {
-        console.log("[sitemap] got " + Object.keys(ott).length + " ott_updates");
-      }
-    } catch (e) {
-      ottError = e.message;
-      console.error("[sitemap] ott_updates error: " + e.message);
-    }
-
-    if (reviewError && ottError) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain" },
-        body: "Both Firebase requests failed.\nReviews error: " + reviewError + "\nOTT error: " + ottError,
-      };
-    }
-
-    var parts = ['<?xml version="1.0" encoding="UTF-8"?>',
-      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'];
-
-    STATIC_PAGES.forEach(function (p) {
-      parts.push(urlEntry(p.path, today, p.changefreq, p.priority));
-    });
-
-    reviewEntries.forEach(function (e) {
-      parts.push(urlEntry(e.loc, e.lastmod, e.changefreq, e.priority));
-    });
-
-    parts.push("</urlset>");
-
-    var xml = parts.join("\n");
-    console.log("[sitemap] done. total URLs: " + (STATIC_PAGES.length + reviewEntries.length));
-
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "application/xml; charset=utf-8",
-        "Cache-Control": "public, max-age=3600",
-      },
-      body: xml,
-    };
-
-  } catch (err) {
-    console.error("[sitemap] FATAL: " + err.message + "\n" + err.stack);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "text/plain" },
-      body: "Sitemap crashed.\nName: " + (err.name || "Unknown") +
-            "\nMessage: " + (err.message || String(err)) +
-            "\nStack: " + (err.stack || "none"),
-    };
-  }
-};

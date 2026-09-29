@@ -1,11 +1,10 @@
 /* =========================================================
    FluxReviews — Admin Dashboard Logic
+   Reviews and OTT data go through the Spring Boot backend.
+   Firebase Auth is kept only for the login screen.
    ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getDatabase, ref, push, set, update, remove, onValue
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -13,13 +12,62 @@ import { firebaseConfig, TMDB_API_KEY } from "/config.js";
 import { escapeHtml, truncate, starRatingMarkup, animateStarFills, generateSlug } from "/utils.js";
 
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
 const auth = getAuth(app);
-const reviewsRef = ref(db, "reviews");
-const ottRef = ref(db, "ott_updates");
+
+
+/* ---------------------------------------------------------
+   Spring Boot backend
+--------------------------------------------------------- */
+const API_BASE_URL = "https://fluxreviews-backend.onrender.com";
+const ADMIN_KEY_STORAGE = "flux_admin_key";
+
+function getAdminKey() {
+  let key = sessionStorage.getItem(ADMIN_KEY_STORAGE);
+  if (!key) {
+    key = window.prompt("Enter the admin API key:") || "";
+    if (key) sessionStorage.setItem(ADMIN_KEY_STORAGE, key);
+  }
+  return key;
+}
+
+async function adminFetch(path, options = {}) {
+  const key = getAdminKey();
+  if (!key) throw new Error("Admin key required");
+
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-Key": key,
+      ...(options.headers || {})
+    }
+  });
+
+  if (res.status === 401) {
+    sessionStorage.removeItem(ADMIN_KEY_STORAGE);
+    throw new Error("Invalid admin key, try again");
+  }
+
+  if (!res.ok) {
+    let msg = `Server returned ${res.status}`;
+    try {
+      const json = await res.json();
+      msg = json.message || msg;
+    } catch {
+      /* no JSON body */
+    }
+    throw new Error(msg);
+  }
+
+  return res.status === 204 ? null : res.json();
+}
+
+/* ---------------------------------------------------------
+   TMDB (still called from the browser for now)
+--------------------------------------------------------- */
 const TMDB_BASE = "https://api.themoviedb.org/3";
-const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w780"; // HD poster size
-const TMDB_THUMB_BASE = "https://image.tmdb.org/t/p/w92"; // small thumb for result list
+const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w780";
+const TMDB_THUMB_BASE = "https://image.tmdb.org/t/p/w92";
 
 // TMDB genre names that differ from our local genre list
 const TMDB_GENRE_MAP = { "Science Fiction": "Sci-Fi" };
@@ -35,6 +83,8 @@ const GENRES = [
   "Dark Comedy", "Slice of Life", "Coming of Age"
 ];
 
+const OTT_PLATFORMS = ["Netflix", "Prime Video", "JioHotstar", "SonyLiv", "ZEE5", "Aha", "ETV Win", "Others"];
+
 /* ---------------------------------------------------------
    State
 --------------------------------------------------------- */
@@ -43,12 +93,9 @@ let selectedGenres = new Set();
 let editingId = null;
 let pendingDeleteId = null;
 let pendingDeleteType = "review";
-let reviewsListenerAttached = false;
 
 let ottCache = {};
 let editingOttId = null;
-let ottListenerAttached = false;
-const OTT_PLATFORMS = ["Netflix", "Prime Video", "JioHotstar", "SonyLiv", "ZEE5", "Aha", "ETV Win", "Others"];
 
 /* ---------------------------------------------------------
    DOM refs
@@ -138,6 +185,14 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.remove(), 3000);
 }
 
+function debounce(fn, delay) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), delay);
+  };
+}
+
 /* ---------------------------------------------------------
    Admin tab switching — Reviews / OTT Updates
 --------------------------------------------------------- */
@@ -151,32 +206,43 @@ adminTabBtns.forEach((btn) => {
   });
 });
 
-/* ---------------------------------------------------------
-   Firebase CRUD functions
---------------------------------------------------------- */
+/* =========================================================
+   REVIEWS — Spring Boot REST API
+   ========================================================= */
 function saveReview(data) {
-  const newRef = push(reviewsRef);
-  return set(newRef, { ...data, likes: 0, createdAt: Date.now() });
+  return adminFetch("/api/admin/reviews", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
 }
 
 function updateReview(id, data) {
-  return update(ref(db, `reviews/${id}`), data);
+  return adminFetch(`/api/admin/reviews/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(data)
+  });
 }
 
 function deleteReview(id) {
-  return remove(ref(db, `reviews/${id}`));
+  return adminFetch(`/api/admin/reviews/${encodeURIComponent(id)}`, {
+    method: "DELETE"
+  });
 }
 
-function loadReviews() {
-  onValue(
-    reviewsRef,
-    (snapshot) => {
-      reviewsCache = snapshot.val() || {};
-      reviewCount.textContent = Object.keys(reviewsCache).length;
-      renderList();
-    },
-    (error) => showToast("Failed to load reviews: " + error.message, "error")
-  );
+async function loadReviews() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/reviews?limit=500`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const json = await res.json();
+
+    reviewsCache = {};
+    (json.data || []).forEach((r) => { reviewsCache[r.id] = r; });
+
+    reviewCount.textContent = Object.keys(reviewsCache).length;
+    renderList();
+  } catch (err) {
+    showToast("Failed to load reviews: " + err.message, "error");
+  }
 }
 
 /* ---------------------------------------------------------
@@ -239,9 +305,9 @@ ratingRange.addEventListener("input", () => {
   ratingValueLabel.textContent = Number(ratingRange.value).toFixed(1);
 });
 
-/* ---------------------------------------------------------
+/* =========================================================
    TMDB auto-fill
---------------------------------------------------------- */
+   ========================================================= */
 async function tmdbSearch(query) {
   const url = `${TMDB_BASE}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
   const res = await fetch(url);
@@ -340,9 +406,9 @@ tmdbSearchInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); runTmdbSearch(); }
 });
 
-/* ---------------------------------------------------------
-   Form submit (Add / Update)
---------------------------------------------------------- */
+/* =========================================================
+   Review form — Add / Update
+   ========================================================= */
 reviewForm.addEventListener("submit", (e) => {
   e.preventDefault();
 
@@ -376,9 +442,11 @@ reviewForm.addEventListener("submit", (e) => {
   const task = editingId ? updateReview(editingId, payload) : saveReview(payload);
 
   task
-    .then(() => {
+    .then(async () => {
       showToast(editingId ? "Review updated successfully" : "Review added successfully", "success");
       resetForm();
+      // A plain REST call does not push updates like Firebase did, so reload.
+      await loadReviews();
     })
     .catch((err) => showToast("Error: " + err.message, "error"))
     .finally(() => { submitBtn.disabled = false; });
@@ -436,11 +504,11 @@ function startEdit(id) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-/* ---------------------------------------------------------
-   List rendering — search, filter, sort
---------------------------------------------------------- */
+/* =========================================================
+   Review list — search, filter, sort
+   ========================================================= */
 function getFilteredSortedReviews() {
-  let arr = Object.entries(reviewsCache).map(([id, r]) => ({ id, ...r }));
+  let arr = Object.entries(reviewsCache).map(([id, r]) => ({ ...r, id }));
 
   const q = searchInput.value.trim().toLowerCase();
   if (q) {
@@ -476,7 +544,7 @@ function buildAdminCard(r) {
   const extra = (r.genres || []).length > 3 ? `<span class="genre-tag">+${r.genres.length - 3}</span>` : "";
 
   return `
-    <article class="movie-card" data-id="${r.id}">
+    <article class="movie-card" data-id="${escapeHtml(r.id)}">
       <div class="poster-wrap">
         <img src="${escapeHtml(r.poster)}" alt="${escapeHtml(r.movieName)} poster" loading="lazy" decoding="async"
              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
@@ -491,8 +559,8 @@ function buildAdminCard(r) {
           <div class="card-footer">
             ${starRatingMarkup(r.rating || 0)}
             <div class="card-admin-actions">
-              <button type="button" class="icon-btn btn-edit" data-id="${r.id}" title="Edit">✏️</button>
-              <button type="button" class="icon-btn danger btn-delete" data-id="${r.id}" title="Delete">🗑️</button>
+              <button type="button" class="icon-btn btn-edit" data-id="${escapeHtml(r.id)}" title="Edit">✏️</button>
+              <button type="button" class="icon-btn danger btn-delete" data-id="${escapeHtml(r.id)}" title="Delete">🗑️</button>
             </div>
           </div>
         </div>
@@ -522,14 +590,6 @@ searchInput.addEventListener("input", debounce(renderList, 200));
 genreFilter.addEventListener("change", renderList);
 sortSelect.addEventListener("change", renderList);
 
-function debounce(fn, delay) {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), delay);
-  };
-}
-
 /* ---------------------------------------------------------
    Card click delegation — edit / delete / preview
 --------------------------------------------------------- */
@@ -549,12 +609,12 @@ adminGrid.addEventListener("click", (e) => {
     showToast(`Filtered to ${genreTag.dataset.genre}`, "info");
     return;
   }
-  if (card) { openDetailModal(card.dataset.id); }
+  if (card) openDetailModal(card.dataset.id);
 });
 
-/* ---------------------------------------------------------
-   Delete confirmation modal (shared between Reviews and OTT)
---------------------------------------------------------- */
+/* =========================================================
+   Delete confirmation modal (shared by Reviews and OTT)
+   ========================================================= */
 function openConfirmDelete(id, type = "review") {
   pendingDeleteId = id;
   pendingDeleteType = type;
@@ -567,19 +627,28 @@ function openConfirmDelete(id, type = "review") {
   }
   confirmModal.classList.add("active");
 }
+
 function closeConfirmDelete() {
   pendingDeleteId = null;
   confirmModal.classList.remove("active");
 }
+
 confirmCancelBtn.addEventListener("click", closeConfirmDelete);
 confirmModal.addEventListener("click", (e) => { if (e.target === confirmModal) closeConfirmDelete(); });
 
 confirmDeleteBtn.addEventListener("click", () => {
   if (!pendingDeleteId) return;
   confirmDeleteBtn.disabled = true;
-  const task = pendingDeleteType === "ott" ? deleteOtt(pendingDeleteId) : deleteReview(pendingDeleteId);
+
+  const type = pendingDeleteType;
+  const task = type === "ott" ? deleteOtt(pendingDeleteId) : deleteReview(pendingDeleteId);
+
   task
-    .then(() => showToast(pendingDeleteType === "ott" ? "OTT update deleted" : "Review deleted", "success"))
+    .then(async () => {
+      showToast(type === "ott" ? "OTT update deleted" : "Review deleted", "success");
+      if (type === "ott") await loadOttUpdates();
+      else await loadReviews();
+    })
     .catch((err) => showToast("Error: " + err.message, "error"))
     .finally(() => {
       confirmDeleteBtn.disabled = false;
@@ -587,9 +656,9 @@ confirmDeleteBtn.addEventListener("click", () => {
     });
 });
 
-/* ---------------------------------------------------------
+/* =========================================================
    Detail preview modal (read-only)
---------------------------------------------------------- */
+   ========================================================= */
 function openDetailModal(id) {
   const r = reviewsCache[id];
   if (!r) return;
@@ -656,6 +725,7 @@ function openDetailModal(id) {
 function closeDetailModal() {
   detailModal.classList.remove("active");
 }
+
 detailModal.addEventListener("click", (e) => { if (e.target === detailModal) closeDetailModal(); });
 
 document.addEventListener("keydown", (e) => {
@@ -665,9 +735,9 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-/* ===========================================================
-   OTT UPDATES — Firebase CRUD, form handling, list rendering
-   =========================================================== */
+/* =========================================================
+   OTT UPDATES — Spring Boot REST API
+   ========================================================= */
 function platformBadgeClass(platform) {
   const map = {
     "Netflix": "platform-netflix",
@@ -682,25 +752,39 @@ function platformBadgeClass(platform) {
 }
 
 function saveOtt(data) {
-  const newRef = push(ottRef);
-  return set(newRef, { ...data, createdAt: Date.now() });
+  return adminFetch("/api/admin/ott", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
 }
+
 function updateOtt(id, data) {
-  return update(ref(db, `ott_updates/${id}`), data);
+  return adminFetch(`/api/admin/ott/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(data)
+  });
 }
+
 function deleteOtt(id) {
-  return remove(ref(db, `ott_updates/${id}`));
+  return adminFetch(`/api/admin/ott/${encodeURIComponent(id)}`, {
+    method: "DELETE"
+  });
 }
-function loadOttUpdates() {
-  onValue(
-    ottRef,
-    (snapshot) => {
-      ottCache = snapshot.val() || {};
-      ottCount.textContent = Object.keys(ottCache).length;
-      renderOttList();
-    },
-    (error) => showToast("Failed to load OTT updates: " + error.message, "error")
-  );
+
+async function loadOttUpdates() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/ott`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const json = await res.json();
+
+    ottCache = {};
+    (json.data || []).forEach((o) => { ottCache[o.id] = o; });
+
+    ottCount.textContent = Object.keys(ottCache).length;
+    renderOttList();
+  } catch (err) {
+    showToast("Failed to load OTT updates: " + err.message, "error");
+  }
 }
 
 ottPosterInput.addEventListener("input", () => {
@@ -715,9 +799,10 @@ ottPosterInput.addEventListener("input", () => {
 async function runOttTmdbSearch() {
   const query = ottTmdbSearchInput.value.trim();
   if (!query) return;
+
   ottTmdbResults.innerHTML = `<div class="tmdb-status">Searching TMDB...</div>`;
   try {
-    const url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
+    const url = `${TMDB_BASE}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("TMDB request failed");
     const data = await res.json();
@@ -730,11 +815,11 @@ async function runOttTmdbSearch() {
 
     ottTmdbResults.innerHTML = results.map((m) => {
       const year = (m.release_date || "").slice(0, 4) || "—";
-      const thumb = m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : "";
+      const thumb = m.poster_path ? `${TMDB_THUMB_BASE}${m.poster_path}` : "";
       return `
         <button type="button" class="tmdb-result-item" data-id="${m.id}"
           data-title="${escapeHtml(m.title)}"
-          data-poster="${m.poster_path ? `https://image.tmdb.org/t/p/w780${m.poster_path}` : ""}"
+          data-poster="${m.poster_path ? `${TMDB_IMG_BASE}${m.poster_path}` : ""}"
           data-overview="${escapeHtml(m.overview || "")}">
           ${thumb ? `<img class="tmdb-result-poster" src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : `<div class="tmdb-result-poster"></div>`}
           <div class="tmdb-result-info">
@@ -766,6 +851,9 @@ ottTmdbSearchInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); runOttTmdbSearch(); }
 });
 
+/* ---------------------------------------------------------
+   OTT form — Add / Update
+--------------------------------------------------------- */
 ottForm.addEventListener("submit", (e) => {
   e.preventDefault();
 
@@ -786,9 +874,10 @@ ottForm.addEventListener("submit", (e) => {
   const task = editingOttId ? updateOtt(editingOttId, payload) : saveOtt(payload);
 
   task
-    .then(() => {
+    .then(async () => {
       showToast(editingOttId ? "OTT update updated" : "OTT update added", "success");
       resetOttForm();
+      await loadOttUpdates();
     })
     .catch((err) => showToast("Error: " + err.message, "error"))
     .finally(() => { ottSubmitBtn.disabled = false; });
@@ -805,6 +894,7 @@ function resetOttForm() {
   ottSubmitBtn.textContent = "💾 Save Update";
   ottCancelEditBtn.style.display = "none";
 }
+
 ottCancelEditBtn.addEventListener("click", resetOttForm);
 
 function startEditOtt(id) {
@@ -829,7 +919,7 @@ function startEditOtt(id) {
 }
 
 function getFilteredSortedOtt() {
-  let arr = Object.entries(ottCache).map(([id, o]) => ({ id, ...o }));
+  let arr = Object.entries(ottCache).map(([id, o]) => ({ ...o, id }));
 
   const platformVal = ottPlatformFilter.value;
   if (platformVal) arr = arr.filter((o) => o.platform === platformVal);
@@ -844,7 +934,7 @@ function getFilteredSortedOtt() {
 
 function buildOttAdminCard(o) {
   return `
-    <article class="movie-card" data-id="${o.id}">
+    <article class="movie-card" data-id="${escapeHtml(o.id)}">
       <div class="poster-wrap">
         <img src="${escapeHtml(o.poster)}" alt="${escapeHtml(o.title)} poster"
              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
@@ -860,8 +950,8 @@ function buildOttAdminCard(o) {
           <div class="card-footer">
             <span></span>
             <div class="card-admin-actions">
-              <button type="button" class="icon-btn btn-edit-ott" data-id="${o.id}" title="Edit">✏️</button>
-              <button type="button" class="icon-btn danger btn-delete-ott" data-id="${o.id}" title="Delete">🗑️</button>
+              <button type="button" class="icon-btn btn-edit-ott" data-id="${escapeHtml(o.id)}" title="Edit">✏️</button>
+              <button type="button" class="icon-btn danger btn-delete-ott" data-id="${escapeHtml(o.id)}" title="Delete">🗑️</button>
             </div>
           </div>
         </div>
@@ -894,16 +984,16 @@ ottGrid.addEventListener("click", (e) => {
   if (deleteBtn) { openConfirmDelete(deleteBtn.dataset.id, "ott"); return; }
 });
 
-/* ---------------------------------------------------------
-   Authentication — login / logout / auth state gate
---------------------------------------------------------- */
+/* =========================================================
+   Authentication — Firebase Auth login screen
+   ========================================================= */
 loginForm.addEventListener("submit", (e) => {
   e.preventDefault();
   loginError.textContent = "";
   loginBtn.disabled = true;
 
   signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value)
-    .catch((err) => {
+    .catch(() => {
       loginError.textContent = "Incorrect email or password.";
     })
     .finally(() => { loginBtn.disabled = false; });
@@ -913,29 +1003,27 @@ logoutBtn.addEventListener("click", () => {
   signOut(auth).then(() => showToast("Signed out", "info"));
 });
 
+function showAdminApp() {
+  authGate.classList.add("auth-gate-hidden");
+  adminApp.classList.remove("admin-app-hidden");
+  loginForm.reset();
+  loginError.textContent = "";
+  loadReviews();
+  loadOttUpdates();
+}
+
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    authGate.classList.add("auth-gate-hidden");
-    adminApp.classList.remove("admin-app-hidden");
-    loginForm.reset();
-    loginError.textContent = "";
-    if (!reviewsListenerAttached) {
-      reviewsListenerAttached = true;
-      loadReviews();
-    }
-    if (!ottListenerAttached) {
-      ottListenerAttached = true;
-      loadOttUpdates();
-    }
+    showAdminApp();
   } else {
     adminApp.classList.add("admin-app-hidden");
     authGate.classList.remove("auth-gate-hidden");
   }
 });
 
-/* ---------------------------------------------------------
+/* =========================================================
    Init — UI setup that doesn't depend on auth state
---------------------------------------------------------- */
+   ========================================================= */
 renderGenreCloud();
 renderGenreFilterOptions();
 resetForm();
