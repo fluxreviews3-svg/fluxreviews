@@ -62,36 +62,6 @@ html.halloween .hw-bg {
   overflow: hidden;
 }
 
-/* faint orange dotted grid across the whole page */
-html.halloween .hw-grid {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle, rgba(255, 138, 31, 0.17) 1px, transparent 1.7px);
-  background-size: 26px 26px;
-  background-position: 13px 13px;
-  -webkit-mask-image: radial-gradient(ellipse 90% 90% at 50% 40%, #000 35%, transparent 100%);
-          mask-image: radial-gradient(ellipse 90% 90% at 50% 40%, #000 35%, transparent 100%);
-}
-
-/* brighter dot clusters that drift & breathe very slowly */
-html.halloween .hw-glow {
-  position: absolute;
-  inset: -6%;
-  background-image: radial-gradient(circle, rgba(255, 154, 48, 0.9) 1.5px, transparent 2.2px);
-  background-size: 26px 26px;
-  background-position: 13px 13px;
-  -webkit-mask-image:
-    radial-gradient(ellipse 26% 30% at 15% 38%, #000 0%, transparent 100%),
-    radial-gradient(ellipse 24% 28% at 85% 76%, #000 0%, transparent 100%),
-    radial-gradient(ellipse 18% 22% at 62% 16%, rgba(0, 0, 0, 0.65) 0%, transparent 100%);
-          mask-image:
-    radial-gradient(ellipse 26% 30% at 15% 38%, #000 0%, transparent 100%),
-    radial-gradient(ellipse 24% 28% at 85% 76%, #000 0%, transparent 100%),
-    radial-gradient(ellipse 18% 22% at 62% 16%, rgba(0, 0, 0, 0.65) 0%, transparent 100%);
-  animation: hwDrift 42s ease-in-out infinite alternate, hwBreathe 8s ease-in-out infinite alternate;
-  will-change: transform, opacity;
-}
-
 /* cinematic edge vignette */
 html.halloween .hw-vignette {
   position: absolute;
@@ -127,14 +97,6 @@ html.halloween .hw-ember {
   will-change: transform, opacity;
 }
 
-@keyframes hwDrift {
-  from { transform: translate3d(-1.2%, 1%, 0); }
-  to   { transform: translate3d(1.6%, -1.6%, 0); }
-}
-@keyframes hwBreathe {
-  from { opacity: 0.5; }
-  to   { opacity: 1; }
-}
 @keyframes hwRise {
   0%   { transform: translate3d(0, 0, 0); opacity: 0; }
   8%   { opacity: 0.85; }
@@ -447,6 +409,88 @@ html.halloween .hero-logo-ring { animation-name: hwLogoPulse; }
 html.halloween .hero-headline { filter: drop-shadow(0 0 24px rgba(255, 106, 0, 0.22)); }
 
 /* ---------------------------------------------------------
+   10b. WANDERING GHOST + CORNER PUMPKIN POP-UPS
+--------------------------------------------------------- */
+.hw-ghost, .hw-popups { display: none; }
+
+html.halloween {
+  --hw-ghost-w: 92px;
+  --hw-pk-w: 84px;
+  --hw-pk-top: 96px;       /* top-corner pumpkins sit just below the header */
+}
+
+/* ghost: 40% opacity, wanders the whole viewport (movement is driven by halloween.js) */
+html.halloween .hw-ghost {
+  display: block;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--hw-ghost-w);
+  opacity: 0.4;
+  z-index: 130;
+  pointer-events: none;
+  will-change: transform;
+}
+html.halloween .hw-ghost svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
+}
+html.halloween .hw-ghost-flip { transition: transform 0.9s ease; }
+html.halloween .hw-ghost.hw-face-left .hw-ghost-flip { transform: scaleX(-1); }
+html.halloween .hw-ghost-bob { animation: hwBob 3.2s ease-in-out infinite alternate; }
+html.halloween .hw-ghost-static { top: auto; bottom: 22px; left: 16px; }
+
+@keyframes hwBob {
+  from { transform: translateY(-6px) rotate(-1.8deg); }
+  to   { transform: translateY(7px)  rotate(1.8deg); }
+}
+
+/* pumpkins: pop in from a corner, glow & flicker, pop out */
+html.halloween .hw-popups {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  pointer-events: none;
+  overflow: hidden;
+}
+html.halloween .hw-pumpkin {
+  position: absolute;
+  width: calc(var(--hw-pk-w) * var(--k, 1));
+  opacity: 0;
+  animation: hwPop 6.4s forwards;
+  filter: drop-shadow(0 0 16px rgba(255, 138, 31, 0.45));
+}
+html.halloween .hw-pumpkin svg { display: block; width: 100%; height: auto; }
+html.halloween .hw-pk-tl { top: var(--hw-pk-top); left: 14px;  transform-origin: 0 0; }
+html.halloween .hw-pk-tr { top: var(--hw-pk-top); right: 14px; transform-origin: 100% 0; }
+html.halloween .hw-pk-bl { bottom: 14px; left: 14px;  transform-origin: 0 100%; }
+html.halloween .hw-pk-br { bottom: 14px; right: 14px; transform-origin: 100% 100%; }
+html.halloween .hw-pk-bob   { animation: hwPkBob 2.4s ease-in-out infinite alternate; }
+html.halloween .hw-pk-light { animation: hwFlicker 1.7s steps(1, end) infinite; }
+
+@keyframes hwPop {
+  0%   { transform: scale(0) rotate(-14deg); opacity: 0; animation-timing-function: cubic-bezier(0.2, 1.5, 0.4, 1); }
+  9%   { transform: scale(1) rotate(0deg);   opacity: 1; }
+  88%  { transform: scale(1) rotate(0deg);   opacity: 1; animation-timing-function: ease-in; }
+  100% { transform: scale(0) rotate(10deg);  opacity: 0; }
+}
+@keyframes hwPkBob {
+  from { transform: translateY(0)    rotate(var(--tilt, 0deg)); }
+  to   { transform: translateY(-5px) rotate(calc(var(--tilt, 0deg) * -0.5)); }
+}
+@keyframes hwFlicker {
+  0%   { opacity: 1; }
+  18%  { opacity: 0.82; }
+  30%  { opacity: 0.97; }
+  52%  { opacity: 0.78; }
+  70%  { opacity: 1; }
+  86%  { opacity: 0.88; }
+}
+
+/* ---------------------------------------------------------
    11. ADS — hidden for the season (restored automatically
        on 1 Dec 2026, when halloween.js stops activating)
 --------------------------------------------------------- */
@@ -461,6 +505,9 @@ html.hw-no-ads ins.adsbygoogle { display: none !important; }
     --hw-spider-w: 48px;
     --hw-spider-x: 56px;
     --hw-drop: 130px;
+    --hw-ghost-w: 62px;
+    --hw-pk-w: 56px;
+    --hw-pk-top: 128px;
   }
   html.halloween .hw-web { width: 200px; opacity: 0.55; }
   html.halloween .hw-web-bl { opacity: 0.4; }
@@ -468,19 +515,18 @@ html.hw-no-ads ins.adsbygoogle { display: none !important; }
   html.halloween .hero { padding-top: 40px; }
   html.halloween .hero p.hw-tagline { letter-spacing: 0.24em; font-size: 12px; }
   html.halloween .hw-cta { min-width: 0; flex: 1 1 100%; }
-  html.halloween .hw-glow { -webkit-mask-size: 140% 140%; mask-size: 140% 140%; }
 }
 
 /* ---------------------------------------------------------
    13. REDUCED MOTION — calm, static version of the scene
 --------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  html.halloween .hw-glow,
   html.halloween .hw-spider-rig,
   html.halloween .hw-thread,
   html.halloween .hw-spider,
   html.halloween .hw-legs,
   html.halloween .hw-ember,
+  html.halloween .hw-ghost-bob,
   html.halloween .hero-logo-ring { animation: none !important; }
 
   html.halloween .hw-ember { display: none; }
