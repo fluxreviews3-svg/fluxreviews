@@ -172,7 +172,7 @@ function buildCard(r, index) {
 
 const AD_EVERY_N_CARDS = 10; // injects an ad after every 2 rows (~5 cards/row on desktop)
 const ADSENSE_PUB = "ca-pub-4625904588019368";
-const ADSENSE_SLOT = "9083552590"; // replace with your slot ID from AdSense dashboard
+const ADSENSE_SLOT = "YOUR_AD_SLOT_ID"; // replace with your slot ID from AdSense dashboard
 
 function buildAdSlot(index) {
   return `
@@ -203,7 +203,7 @@ function renderGrid() {
   arr.forEach((r, i) => {
     html += buildCard(r, i);
     // inject ad after every AD_EVERY_N_CARDS cards (but not after the last card)
-    if ((i + 1) % AD_EVERY_N_CARDS === 0 && i < arr.length - 1) {
+    if (window.FLUX_ADS_ENABLED !== false && (i + 1) % AD_EVERY_N_CARDS === 0 && i < arr.length - 1) {
       html += buildAdSlot(i);
     }
   });

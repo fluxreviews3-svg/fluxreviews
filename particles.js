@@ -2,6 +2,14 @@
    FluxReviews — Interactive Background Particle Engine
    ========================================================= */
 
+// Seasonal themes may supply their own palette (see halloween.js); defaults below are unchanged.
+const FLUX_IDLE_COLOR = window.FLUX_PARTICLE_IDLE || 'rgba(255, 255, 255, 0.12)';
+const FLUX_THEME_COLORS = window.FLUX_PARTICLE_COLORS || [
+  'rgba(0, 229, 255, 0.6)',  // Cyan (#00e5ff)
+  'rgba(181, 55, 242, 0.6)', // Violet (#b537f2)
+  'rgba(255, 79, 154, 0.6)'  // Pink (#ff4f9a)
+];
+
 class Particle {
   constructor(canvas) {
     this.canvas = canvas;
@@ -18,17 +26,12 @@ class Particle {
     this.vy = (Math.random() - 0.5) * 0.4;
     this.radius = Math.random() * 2 + 1; // 1px to 3px
     this.baseRadius = this.radius;
-    this.color = 'rgba(255, 255, 255, 0.12)';
+    this.color = FLUX_IDLE_COLOR;
     this.activeColor = this.getRandomThemeColor();
   }
 
   getRandomThemeColor() {
-    const colors = [
-      'rgba(0, 229, 255, 0.6)',  // Cyan (#00e5ff)
-      'rgba(181, 55, 242, 0.6)', // Violet (#b537f2)
-      'rgba(255, 79, 154, 0.6)'  // Pink (#ff4f9a)
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
+    return FLUX_THEME_COLORS[Math.floor(Math.random() * FLUX_THEME_COLORS.length)];
   }
 
   update(mouse) {
@@ -65,7 +68,7 @@ class Particle {
       this.x += (this.baseX - this.x) * 0.08;
       this.y += (this.baseY - this.y) * 0.08;
       this.radius += (this.baseRadius - this.radius) * 0.08;
-      this.color = 'rgba(255, 255, 255, 0.12)';
+      this.color = FLUX_IDLE_COLOR;
     }
   }
 
